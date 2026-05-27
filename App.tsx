@@ -468,7 +468,18 @@ const App: React.FC = () => {
           setBalance(1000.00);
         }
       } else {
-        setIsAuthenticated(false);
+        const guestRaw = localStorage.getItem('guest_user');
+        if (guestRaw) {
+          const guestUser = JSON.parse(guestRaw);
+          setUser(guestUser);
+          setCurrentUsername(guestUser.displayName);
+          setIsAuthenticated(true);
+          const savedGuestBal = localStorage.getItem('guest_balance');
+          setBalance(savedGuestBal ? parseFloat(savedGuestBal) : 1000.00);
+        } else {
+          setIsAuthenticated(false);
+          setShowAuthModal(true);
+        }
         setIsAuthReady(true);
       }
     });
@@ -713,12 +724,19 @@ const App: React.FC = () => {
       else if (notification.category === 'tournament') setActiveCategory('aerofantasy');
   };
 
-  const handleLoginSuccess = (user: string) => {
-      setCurrentUsername(user);
+  const handleLoginSuccess = (userName: string) => {
+      setCurrentUsername(userName);
       setIsAuthenticated(true);
       setShowLanding(false); // Esconde a landing
       setShowAuthModal(false);
-      handleAddNotification("Login", `Bem-vindo de volta, ${user}!`, "success");
+      handleAddNotification("Login", `Bem-vindo de volta, ${userName}!`, "success");
+      
+      const guestRaw = localStorage.getItem('guest_user');
+      if (guestRaw && !user) {
+          setUser(JSON.parse(guestRaw));
+          const savedGuestBal = localStorage.getItem('guest_balance');
+          setBalance(savedGuestBal ? parseFloat(savedGuestBal) : 1000.00);
+      }
   };
 
   // --- ADMIN HANDLERS ---
