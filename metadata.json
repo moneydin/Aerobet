@@ -1,0 +1,8 @@
+{
+  "name": "Aerobet",
+  "description": "Um clone idêntico do jogo AERObet (estilo Aviator), apresentando mecânicas de multiplicador em tempo real, painéis de aposta duplos e interface autêntica.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

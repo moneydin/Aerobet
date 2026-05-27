@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user balance, stats, and profile info",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "balance": { "type": "number" },
+        "freeFlights": { "type": "number" },
+        "totalRounds": { "type": "number" },
+        "maxMult": { "type": "number" },
+        "clubeMember": { "type": "boolean" },
+        "clubeFlightsCount": { "type": "number" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["uid", "username", "balance"]
+    },
+    "Bet": {
+      "title": "Game Bet",
+      "description": "Stores a bet made by a user in a round",
+      "type": "object",
+      "properties": {
+        "roundId": { "type": "string" },
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "amount": { "type": "number" },
+        "multiplier": { "type": "number" },
+        "cashedOut": { "type": "boolean" },
+        "profit": { "type": "number" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["roundId", "uid", "amount"]
+    },
+    "Chat": {
+      "title": "Chat Message",
+      "description": "Stores a chat message sent by a user",
+      "type": "object",
+      "properties": {
+        "user": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "role": { "type": "string" },
+        "uid": { "type": "string" }
+      },
+      "required": ["user", "message", "timestamp", "uid"]
+    },
+    "Round": {
+      "title": "Game Round Result",
+      "description": "Stores the crash point and seeds of a finished round",
+      "type": "object",
+      "properties": {
+        "multiplier": { "type": "number" },
+        "color": { "type": "string" },
+        "hash": { "type": "string" },
+        "serverSeed": { "type": "string" },
+        "clientSeed": { "type": "string" },
+        "roundId": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["multiplier", "roundId", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/bets/{betId}": {
+      "schema": "Bet",
+      "description": "All game bets"
+    },
+    "/chat/{msgId}": {
+      "schema": "Chat",
+      "description": "Chat messages"
+    },
+    "/rounds/{roundId}": {
+      "schema": "Round",
+      "description": "Historical game round results"
+    },
+    "/settings/{settingId}": {
+      "schema": "object",
+      "description": "System settings like RTP"
+    }
+  }
+}

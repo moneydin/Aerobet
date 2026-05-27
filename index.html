@@ -1,0 +1,146 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroFLA - Jogue Agora</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#e51a31">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/icon-512.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => console.log('SW registered:', reg.scope))
+          .catch((err) => console.error('SW registration failed:', err));
+      });
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #000;
+      color: white;
+      margin: 0;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #141516;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2c2d30;
+      border-radius: 10px;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    html, body {
+      height: auto;
+      min-height: 100%;
+    }
+
+    /* Animação Marquee (Ticker) */
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .animate-marquee {
+      animation: marquee 30s linear infinite;
+    }
+
+    /* Animação Float (Flutuação) */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+
+    /* Animação Shine (Brilho passando) */
+    @keyframes shine {
+      100% { left: 125%; }
+    }
+    .animate-shine {
+      animation: shine 3s infinite;
+    }
+
+    /* Background Aurora Effect */
+    @keyframes aurora {
+      0% { background-position: 50% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 50% 50%; }
+    }
+    .bg-aurora {
+      background: radial-gradient(circle at 50% -20%, #e51a31 0%, transparent 40%),
+                  radial-gradient(circle at 0% 50%, #5c0009 0%, transparent 40%),
+                  radial-gradient(circle at 100% 50%, #5c0009 0%, transparent 40%);
+      background-size: 200% 200%;
+      animation: aurora 15s ease infinite;
+    }
+
+    /* Utilitário para Grid de Background */
+    .bg-grid-white {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgba(255, 255, 255, 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+    }
+
+    /* Animação de Voo do Avião (Fan Page) */
+    /* Curva exponencial suave para simular o jogo */
+    @keyframes flight-path {
+      0% {
+        transform: translate3d(-10vw, 80vh, 0) rotate(0deg) scale(0.6);
+        opacity: 0;
+      }
+      10% {
+         opacity: 1;
+      }
+      100% {
+        transform: translate3d(110vw, 10vh, 0) rotate(-20deg) scale(1.1);
+        opacity: 1;
+      }
+    }
+    .animate-flight-path {
+      animation: flight-path 7s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
+    }
+
+    /* Animação Scan Line para QR Code */
+    @keyframes scan-line {
+      0% { top: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .animate-scan-line {
+      animation: scan-line 1.5s linear infinite;
+    }
+
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
