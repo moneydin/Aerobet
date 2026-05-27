@@ -16,7 +16,11 @@ export const useAviator = (rtp: number = 97) => {
   const countdownTargetRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const socket = io();
+    const socketUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      path: '/socket.io'
+    });
     socketRef.current = socket;
 
     socket.on('init', (data) => {

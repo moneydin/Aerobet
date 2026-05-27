@@ -13,7 +13,7 @@ import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, doc, 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 const WAIT_TIME = 5000;
 const LOGIC_TICK_RATE = 50;
 
@@ -33,7 +33,14 @@ interface GameHistory {
 }
 
 async function startServer() {
-  const firebaseConfig = JSON.parse(readFileSync(path.join(__dirname, "firebase-applet-config.json"), "utf8"));
+  const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+  let firebaseConfig;
+  try {
+    firebaseConfig = JSON.parse(readFileSync(firebaseConfigPath, "utf8"));
+  } catch (err) {
+    console.error("Failed to read firebase config:", err);
+    process.exit(1);
+  }
   const fbApp = initializeApp(firebaseConfig);
   const db = getFirestore(fbApp, firebaseConfig.firestoreDatabaseId);
 
@@ -59,24 +66,22 @@ async function startServer() {
   let forcedCrashPoint: number | null = null;
 
   // Initial rtp sync from Firestore
-  try {
-    const rtpDoc = await getDoc(doc(db, "settings", "game_config"));
+  getDoc(doc(db, "settings", "game_config")).then(rtpDoc => {
     if (rtpDoc.exists()) {
       rtp = rtpDoc.data().rtp || 97;
       console.log(`Loaded RTP: ${rtp}% from Firestore.`);
     } else {
-      await setDoc(doc(db, "settings", "game_config"), { rtp: 97 });
+      setDoc(doc(db, "settings", "game_config"), { rtp: 97 }).catch(err => console.error("Error setting RTP", err));
     }
-  } catch (err) {
+  }).catch(err => {
     console.error("Error loading RTP from Firestore:", err);
-  }
+  });
 
   // Initial history sync from Firestore
-  try {
-    const q = query(collection(db, "rounds"), orderBy("timestamp", "desc"), limit(100));
-    const querySnapshot = await getDocs(q);
-    history = querySnapshot.docs.map(doc => {
-      const data = doc.data();
+  const q = query(collection(db, "rounds"), orderBy("timestamp", "desc"), limit(100));
+  getDocs(q).then(querySnapshot => {
+    history = querySnapshot.docs.map((documentSnapshot) => {
+      const data = documentSnapshot.data();
       return {
         multiplier: data.multiplier,
         color: data.color,
@@ -87,9 +92,9 @@ async function startServer() {
       };
     });
     console.log(`Loaded ${history.length} rounds from history.`);
-  } catch (error) {
+  }).catch(error => {
     console.error("Error loading history from Firestore:", error);
-  }
+  });
 
   function sha256(message: string) {
     return crypto.createHash("sha256").update(message).digest("hex");
@@ -254,7 +259,9 @@ async function startServer() {
     });
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT != null || __dirname.includes("dist") || process.argv[1]?.includes('dist');
+  
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
