@@ -2,16 +2,12 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import crypto from "crypto";
 import { readFileSync } from "fs";
 import { initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const WAIT_TIME = 5000;
@@ -259,7 +255,7 @@ async function startServer() {
     });
   });
 
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT != null || __dirname.includes("dist") || process.argv[1]?.includes('dist');
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT != null || process.argv[1]?.includes('dist');
   
   if (!isProduction) {
     const vite = await createViteServer({
