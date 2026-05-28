@@ -15,7 +15,7 @@ const ClubeModal: React.FC<ClubeModalProps> = ({ onClose, stats, config, onJoin 
   const remaining = config.targetFlights - stats.clubeFlightsCount;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -28,8 +28,9 @@ const ClubeModal: React.FC<ClubeModalProps> = ({ onClose, stats, config, onJoin 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-lg bg-[#1b1c1d] rounded-[32px] border border-white/10 overflow-hidden shadow-2xl"
+        className="relative w-full max-w-lg bg-[#1b1c1d] rounded-2xl sm:rounded-[32px] border border-white/10 overflow-hidden shadow-2xl max-h-[95dvh] sm:max-h-[90vh] flex flex-col"
       >
+        <div className="w-full overflow-y-auto no-scrollbar flex flex-col">
         {/* Header com Gradiente */}
         <div className="bg-gradient-to-br from-[#34b1e2] to-[#2096c4] p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 blur-3xl rounded-full -mr-20 -mt-20" />
@@ -115,6 +116,7 @@ const ClubeModal: React.FC<ClubeModalProps> = ({ onClose, stats, config, onJoin 
               </div>
             </div>
           )}
+        </div>
         </div>
       </motion.div>
     </div>

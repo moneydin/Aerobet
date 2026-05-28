@@ -37,6 +37,7 @@ import HangarView from './components/HangarView';
 import { auth, db, signInWithGoogle, logout } from './src/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc, getDoc, collection, query, orderBy, limit, addDoc, serverTimestamp, getDocFromServer, increment, deleteDoc, where } from 'firebase/firestore';
+import { listenToCustomSkins } from './src/utils/customSkins';
 
 enum OperationType {
   CREATE = 'create',
@@ -403,6 +404,11 @@ const App: React.FC = () => {
       localStorage.setItem('guest_balance', balance.toString());
     }
   }, [balance, isGuest, user]);
+
+  useEffect(() => {
+    const unsub = listenToCustomSkins();
+    return () => unsub && unsub();
+  }, []);
 
   // --- FIREBASE SYNC ---
   useEffect(() => {
@@ -1494,21 +1500,28 @@ const App: React.FC = () => {
                       const userDocRef = doc(db, 'users', user.uid);
                       const deduction = bet.isFreeFlight ? { freeFlights: increment(-1) } : { balance: increment(-bet.amount) };
                       
+                      // DEDUCT LOCALLY IMMEDIATELY to prevent race conditions and visual ghosting
+                      if (bet.isFreeFlight) {
+                          setUserStats(prev => ({ ...prev, freeFlights: prev.freeFlights - 1 }));
+                      } else {
+                          setBalance(prev => prev - bet.amount);
+                      }
+                      
                       try {
-                          // Update Firestore
+                          // Update Firestore in background
                           if (!isGuest) {
                               await updateDoc(userDocRef, deduction);
                           }
-                          // Update Local State (Deduct)
-                          if (bet.isFreeFlight) {
-                              setUserStats(prev => ({ ...prev, freeFlights: prev.freeFlights - 1 }));
-                          } else {
-                              setBalance(prev => prev - bet.amount);
-                          }
                       } catch (err) {
                           handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/deduct`);
-                          // If deduction fails (e.g. insufficient funds), cancel the bet locally
+                          // If deduction fails (e.g. insufficient funds), cancel the bet locally and refund
                           setter(null);
+                          setLiveBets(prev => prev.filter(b => b.id !== newBet.id));
+                          if (bet.isFreeFlight) {
+                              setUserStats(prev => ({ ...prev, freeFlights: prev.freeFlights + 1 }));
+                          } else {
+                              setBalance(prev => prev + bet.amount);
+                          }
                       }
                   }
 
@@ -1958,7 +1971,7 @@ const App: React.FC = () => {
             <div className="space-y-4 text-left">
               <div className="flex justify-between items-center px-1">
                 <h3 className="text-xs sm:text-sm font-black italic uppercase text-white tracking-widest">
-                  🎨 PREMIUM SKINS EM DESTAQUE
+                  🎨 AERONAVES PREMIUM EM DESTAQUE
                 </h3>
                 <button
                   onClick={() => {

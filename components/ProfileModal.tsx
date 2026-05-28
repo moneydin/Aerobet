@@ -105,51 +105,51 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-      <div className="bg-[#1b1c1d] w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-[#1b1c1d] w-full max-w-lg rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden">
         
         {/* Header Profile */}
-        <div className="relative bg-gradient-to-b from-[#2c2d30] to-[#1b1c1d] p-6 pb-8 border-b border-white/5">
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/40 hover:text-white transition-colors">
+        <div className="relative bg-gradient-to-b from-[#2c2d30] to-[#1b1c1d] p-4 sm:p-6 pb-6 sm:pb-8 border-b border-white/5 shrink-0">
+          <button onClick={onClose} className="absolute top-3 sm:top-4 right-3 sm:right-4 p-2 text-white/40 hover:text-white transition-colors z-10">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
           
-          <div className="flex items-center gap-5">
-            <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-                <div className={`w-20 h-20 rounded-full p-1 shadow-[0_0_20px_rgba(0,0,0,0.4)] relative overflow-hidden ${isSubscribed ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-yellow-500/20' : 'bg-[#e51a31]'}`}>
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="relative group cursor-pointer shrink-0" onClick={handleAvatarClick}>
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full p-1 shadow-[0_0_20px_rgba(0,0,0,0.4)] relative overflow-hidden ${isSubscribed ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-yellow-500/20' : 'bg-[#e51a31]'}`}>
                    <img src={userAvatar} alt="Avatar" className="w-full h-full rounded-full bg-black object-cover" />
                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="sm:w-6 sm:h-6"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                    </div>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
             </div>
             
-            <div className="flex flex-col">
-              <div className="flex gap-2 mb-1">
+            <div className="flex flex-col min-w-0 flex-1 pr-6 sm:pr-0">
+              <div className="flex flex-wrap gap-2 mb-1">
                   {/* ELITE BADGE */}
                   {isSubscribed && (
-                      <span className="bg-gradient-to-r from-yellow-500 to-amber-700 text-black text-[9px] font-black px-2 py-0.5 rounded-md w-fit shadow-lg animate-pulse">
+                      <span className="bg-gradient-to-r from-yellow-500 to-amber-700 text-black text-[9px] font-black px-2 py-0.5 rounded-md w-fit shadow-lg animate-pulse whitespace-nowrap">
                           ELITE MEMBER
                       </span>
                   )}
                   {stats.clubeMember && (
-                      <span className="bg-[#34b1e2] text-black text-[9px] font-black px-2 py-0.5 rounded-md w-fit shadow-lg">
+                      <span className="bg-[#34b1e2] text-black text-[9px] font-black px-2 py-0.5 rounded-md w-fit shadow-lg whitespace-nowrap">
                           CLUBE AEROBET
                       </span>
                   )}
               </div>
-              <h2 className="text-2xl font-black text-white italic tracking-tight">{username}</h2>
-              <div className="flex gap-4 mt-1">
-                  <span className="text-xs text-white/40 font-mono">ID: {849302}-BR</span>
-                  <span className="text-xs font-bold text-[#e51a31]">Voos Grátis: {stats.freeFlights}</span>
+              <h2 className="text-xl sm:text-2xl font-black text-white italic tracking-tight truncate">{username}</h2>
+              <div className="flex flex-wrap gap-2 sm:gap-4 mt-1">
+                  <span className="text-[10px] sm:text-xs text-white/40 font-mono">ID: {849302}-BR</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-[#e51a31] whitespace-nowrap">Voos Grátis: {stats.freeFlights}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/5 bg-[#141516] overflow-x-auto no-scrollbar">
+        <div className="flex border-b border-white/5 bg-[#141516] overflow-x-auto no-scrollbar shrink-0">
             {(['overview', 'my_data', 'history'] as const).map(tab => (
                 <button 
                   key={tab}

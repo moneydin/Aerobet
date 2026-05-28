@@ -56,8 +56,8 @@ const TopBanner: React.FC<TopBannerProps> = ({
   const [showBalance, setShowBalance] = useState(true);
 
   return (
-    <nav className={`flex items-center justify-between px-3 py-1.5 rounded-xl border flex-shrink-0 z-[60] shadow-lg sticky top-1.5 transition-colors duration-500 ${activeEventId ? 'bg-[#0f1922] border-[#34b1e2]/30' : 'bg-[#1b1c1d] border-white/5'}`}>
-      <div className="flex items-center gap-3 md:gap-4">
+    <nav className={`flex items-center justify-between px-2 sm:px-3 py-1.5 rounded-xl border flex-shrink-0 z-[60] shadow-lg sticky top-1.5 transition-colors duration-500 w-full overflow-x-auto no-scrollbar ${activeEventId ? 'bg-[#0f1922] border-[#34b1e2]/30' : 'bg-[#1b1c1d] border-white/5'}`}>
+      <div className="flex items-center gap-1 sm:gap-3 md:gap-4 shrink-0">
         {/* Menu Hamburguer */}
         <button 
           onClick={onMenuClick}
@@ -70,13 +70,13 @@ const TopBanner: React.FC<TopBannerProps> = ({
           </svg>
         </button>
 
-        <div className="flex items-center font-black text-lg italic tracking-tighter uppercase select-none">
+        <div className="flex items-center font-black text-base sm:text-lg italic tracking-tighter uppercase select-none">
           <span className="text-[#e51a31]">AERO</span>
           <span className="text-white">bet</span>
         </div>
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 min-w-0 justify-end">
         <button
           onClick={onShowFairness}
           title="Provavelmente Justo"
@@ -105,11 +105,11 @@ const TopBanner: React.FC<TopBannerProps> = ({
         </div>
 
         {/* Saldo, Notificações e Avatar */}
-        <div className="flex items-center gap-2 pl-2 border-l border-white/5 ml-2">
+        <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-white/5 ml-1 sm:ml-2">
            
            <button 
              onClick={onNotificationsClick}
-             className="relative p-2 rounded-full hover:bg-white/5 text-white/60 hover:text-white transition-all active:scale-95"
+             className="relative p-1.5 sm:p-2 rounded-full hover:bg-white/5 text-white/60 hover:text-white transition-all active:scale-95 shrink-0"
            >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
               {unreadNotifications > 0 && (
@@ -119,28 +119,28 @@ const TopBanner: React.FC<TopBannerProps> = ({
 
            {activeEventId ? (
                 // --- MOSTRADOR DE AEROCOINS/FANTASY (MODO EVENTO) ---
-                <div className="flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
-                    <div className="bg-[#34b1e2]/10 px-3 py-1.5 rounded-full border border-[#34b1e2]/30 flex items-center gap-2 shadow-[0_0_15px_rgba(52,177,226,0.2)]">
+                <div className="flex items-center gap-1 sm:gap-2 animate-in slide-in-from-top-2 duration-300 shrink-0">
+                    <div className="bg-[#34b1e2]/10 px-2 sm:px-3 py-1.5 rounded-full border border-[#34b1e2]/30 flex items-center gap-1 sm:gap-2 shadow-[0_0_15px_rgba(52,177,226,0.2)] min-w-0">
                         {activeLeagueType === 'multiplier' ? (
                             <>
-                                <div className="w-4 h-4 rounded-full bg-[#34b1e2] flex items-center justify-center text-black font-black text-[9px]">
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                                <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#34b1e2] flex items-center justify-center text-black font-black text-[8px] sm:text-[9px] shrink-0">
+                                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="sm:w-[10px] sm:h-[10px]"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                                 </div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[#34b1e2] font-black text-xs leading-none">
+                                <div className="flex flex-col items-end min-w-0">
+                                    <span className="text-[#34b1e2] font-black text-[10px] sm:text-xs leading-none truncate max-w-[60px] sm:max-w-none">
                                         {fantasyFlightsLeft} Voos
                                     </span>
-                                    <span className="text-[7px] text-white/50 uppercase font-bold leading-none">Restantes</span>
+                                    <span className="text-[6px] sm:text-[7px] text-white/50 uppercase font-bold leading-none hidden sm:block">Restantes</span>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <div className="w-4 h-4 rounded-full bg-[#34b1e2] flex items-center justify-center text-black font-black text-[9px]">A</div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[#34b1e2] font-black text-xs leading-none">
+                                <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-[#34b1e2] flex items-center justify-center text-black font-black text-[8px] sm:text-[9px] shrink-0">A</div>
+                                <div className="flex flex-col items-end min-w-0">
+                                    <span className="text-[#34b1e2] font-black text-[10px] sm:text-xs leading-none truncate max-w-[60px] sm:max-w-none">
                                         {Math.floor(aerocoinBalance || 0)} AC
                                     </span>
-                                    <span className="text-[7px] text-white/50 uppercase font-bold leading-none">Saldo Fantasy</span>
+                                    <span className="text-[6px] sm:text-[7px] text-white/50 uppercase font-bold leading-none hidden sm:block">Saldo Fantasy</span>
                                 </div>
                             </>
                         )}
@@ -149,27 +149,27 @@ const TopBanner: React.FC<TopBannerProps> = ({
                     {/* BOTÃO DE SAIR DO EVENTO */}
                     <button 
                         onClick={onExitEvent}
-                        className="bg-[#e51a31] hover:bg-[#ff1f3a] text-white p-2 rounded-full shadow-lg active:scale-95 transition-all border border-white/10"
+                        className="bg-[#e51a31] hover:bg-[#ff1f3a] text-white p-1.5 sm:p-2 rounded-full shadow-lg active:scale-95 transition-all border border-white/10 shrink-0"
                         title="Sair do Modo Evento"
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sm:w-[16px] sm:h-[16px]"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     </button>
                 </div>
            ) : (
                 // --- MOSTRADOR DE SALDO REAL ---
-                <div className="bg-[#141516] px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-inner hover:bg-[#1f2022] transition-colors cursor-pointer" onClick={onWalletClick}>
+                <div className="bg-[#141516] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-white/10 flex items-center gap-1 sm:gap-2 shadow-inner hover:bg-[#1f2022] transition-colors cursor-pointer shrink-0 min-w-0" onClick={onWalletClick}>
                     <button 
                         onClick={(e) => { e.stopPropagation(); setShowBalance(!showBalance); }}
-                        className="text-white/40 hover:text-white transition-colors p-1"
+                        className="text-white/40 hover:text-white transition-colors p-0.5 sm:p-1 shrink-0"
                         title={showBalance ? "Ocultar Saldo" : "Mostrar Saldo"}
                     >
                         {showBalance ? <EyeIcon /> : <EyeOffIcon />}
                     </button>
-                    <span className="text-[#28a745] font-black text-xs min-w-[60px] text-right">
+                    <span className="text-[#28a745] font-black text-[10px] sm:text-xs min-w-[40px] sm:min-w-[60px] text-right truncate max-w-[60px] sm:max-w-none">
                         {showBalance ? `R$ ${balance.toFixed(2)}` : 'R$ ****'}
                     </span>
                     <button 
-                    className="w-4 h-4 bg-[#28a745] rounded-full flex items-center justify-center text-[9px] font-bold cursor-pointer hover:bg-[#218838] transition-all text-white shadow-lg ml-1"
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 bg-[#28a745] rounded-full flex items-center justify-center text-[8px] sm:text-[9px] font-bold cursor-pointer hover:bg-[#218838] transition-all text-white shadow-lg ml-0.5 shrink-0"
                     title="Abrir Carteira"
                     >
                     +
@@ -179,7 +179,7 @@ const TopBanner: React.FC<TopBannerProps> = ({
           
           <button 
             onClick={onProfileClick}
-            className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden hover:border-[#e51a31] transition-all active:scale-95 shadow-lg group"
+            className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden hover:border-[#e51a31] transition-all active:scale-95 shadow-lg group"
           >
              <img 
                src={userAvatar} 

@@ -9,8 +9,8 @@ interface FairnessModalProps {
 
 const FairnessModal: React.FC<FairnessModalProps> = ({ history, onClose }) => {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#1b1c1d] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#1b1c1d] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[95dvh] sm:max-h-[80vh]">
         <div className="flex items-center justify-between p-4 border-b border-white/5">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-[#e51a31] flex items-center justify-center">

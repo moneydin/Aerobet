@@ -381,8 +381,8 @@ const TournamentsModal: React.FC<TournamentsModalProps> = ({ onClose, tournament
   const renderContent = () => {
     return (
       <div className={isInline 
-        ? "bg-[#1b1c1d] w-full rounded-3xl border border-white/5 shadow-2xl flex flex-col min-h-[500px] overflow-hidden"
-        : "bg-[#1b1c1d] w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden h-[600px]"
+        ? "bg-[#1b1c1d] w-full rounded-2xl sm:rounded-3xl border border-white/5 shadow-2xl flex flex-col min-h-[500px] max-h-[95dvh] sm:max-h-[90vh] overflow-hidden"
+        : "bg-[#1b1c1d] w-full max-w-lg rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden"
       }>
         
         {selectedTournament ? (

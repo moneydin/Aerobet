@@ -259,8 +259,8 @@ const BankrollManagerModal: React.FC<BankrollManagerModalProps> = ({
   // --- VISUALIZAÇÃO DE VENDAS (REDESIGNED ESTILO ELITE) ---
   if (view === 'sales') {
       return (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300 font-sans">
-             <div className="bg-[#09090b] w-full max-w-sm rounded-[2rem] border border-[#e51a31]/30 shadow-[0_0_50px_rgba(229,26,49,0.2)] relative overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300 font-sans">
+             <div className="bg-[#09090b] w-full max-w-sm rounded-[1.5rem] sm:rounded-[2rem] border border-[#e51a31]/30 shadow-[0_0_50px_rgba(229,26,49,0.2)] relative overflow-hidden flex flex-col max-h-[95dvh] sm:max-h-[90vh]">
                  
                  {/* Decorative Red Glow */}
                  <div className="absolute top-0 right-0 w-64 h-64 bg-[#e51a31]/10 rounded-full blur-[80px] pointer-events-none" />
@@ -367,7 +367,7 @@ const BankrollManagerModal: React.FC<BankrollManagerModalProps> = ({
   // --- RENDER DEFAULT DASHBOARD (IF SUBSCRIBED) ---
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-0 lg:p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
-        <div className="bg-[#09090b] w-full lg:max-w-5xl h-full lg:h-[85vh] lg:rounded-3xl border-none lg:border border-white/10 shadow-2xl flex flex-col lg:flex-row overflow-hidden">
+        <div className="bg-[#09090b] w-full lg:max-w-5xl h-[100dvh] lg:h-[85vh] lg:rounded-3xl border-none lg:border border-white/10 shadow-2xl flex flex-col lg:flex-row overflow-hidden">
             
             {/* Sidebar */}
             <aside className="w-full lg:w-64 bg-[#141516] border-b lg:border-b-0 lg:border-r border-white/5 flex flex-row lg:flex-col shrink-0 items-center lg:items-stretch justify-between lg:justify-start p-4 lg:p-0">

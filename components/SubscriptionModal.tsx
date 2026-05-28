@@ -45,8 +45,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
-        <div className="bg-[#09090b] w-full max-w-lg rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden relative">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
+        <div className="bg-[#09090b] w-full max-w-lg rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden relative">
             
             {/* Header com Gradiente */}
             <div className="bg-gradient-to-r from-[#141516] to-[#09090b] p-6 border-b border-white/5 relative overflow-hidden shrink-0">

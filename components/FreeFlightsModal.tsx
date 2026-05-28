@@ -18,8 +18,8 @@ const FreeFlightsModal: React.FC<FreeFlightsModalProps> = ({ onClose, freeFlight
   };
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-      <div className="bg-[#1b1c1d] w-full max-w-md rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden relative max-h-[85vh]">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-[#1b1c1d] w-full max-w-md rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden relative max-h-[95dvh] sm:max-h-[85vh]">
         
         {/* Botão de Fechar (X) */}
         <button 

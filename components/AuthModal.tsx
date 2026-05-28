@@ -146,8 +146,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
-      <div className="bg-[#09090b] w-full max-w-md rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden relative max-h-[90vh]">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-[#09090b] w-full max-w-md rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden relative max-h-[95dvh] sm:max-h-[90vh]">
         
         {/* Background Decorative Elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#e51a31]/10 rounded-full blur-[80px] pointer-events-none" />

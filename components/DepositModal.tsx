@@ -31,8 +31,8 @@ const DepositModal: React.FC<DepositModalProps> = ({ onClose, onDepositConfirm }
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#1b1c1d] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#1b1c1d] w-full max-w-md rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/5">
           <h3 className="font-black italic uppercase tracking-tighter text-lg text-white">Fazer um Depósito</h3>
           <button onClick={onClose} disabled={isProcessing} className="text-white/40 hover:text-white transition-colors disabled:opacity-50">

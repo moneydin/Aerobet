@@ -231,7 +231,7 @@ const DailyWheelModal: React.FC<DailyWheelModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
       <style>{`
         @keyframes confetti {
             0% { opacity: 1; transform: translate(0, 0) scale(1); }
@@ -242,7 +242,7 @@ const DailyWheelModal: React.FC<DailyWheelModalProps> = ({
 
       {prize && prize.type !== 'none' && <ConfettiExplosion />}
 
-      <div className="bg-[#1b1c1d] w-full max-w-md rounded-[32px] border-2 border-[#d97d1b]/30 shadow-[0_0_60px_rgba(217,125,27,0.15)] flex flex-col items-center overflow-hidden relative">
+      <div className="bg-[#1b1c1d] w-full max-w-md rounded-[24px] sm:rounded-[32px] border-2 border-[#d97d1b]/30 shadow-[0_0_60px_rgba(217,125,27,0.15)] flex flex-col items-center max-h-[95dvh] sm:max-h-[90vh] overflow-y-auto no-scrollbar relative">
         
         {/* Decorative Top Lights */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#d97d1b] to-transparent opacity-50" />

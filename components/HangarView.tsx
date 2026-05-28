@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { getCustomSkins, getCustomSkinImage } from '../src/utils/customSkins';
+import { getCustomSkins, useCustomSkins, getCustomSkinImage } from '../src/utils/customSkins';
 
 interface SkinItem {
   id: string;
@@ -138,9 +138,14 @@ const HangarView: React.FC<HangarViewProps> = ({
     triggerBurst(skinId);
   };
 
+  const customSkins = useCustomSkins();
+
   const allSkins = useMemo(() => {
-    return [...AVAILABLE_SKINS, ...getCustomSkins()];
-  }, []);
+    const activeCustom = customSkins.filter(s => s.isActive !== false);
+    const disabledIds = customSkins.filter(s => s.isActive === false).map(s => s.id);
+    const defaults = AVAILABLE_SKINS.filter(p => !activeCustom.find(c => c.id === p.id) && !disabledIds.includes(p.id));
+    return [...defaults, ...activeCustom];
+  }, [customSkins]);
 
   const currentSkinItem = allSkins.find(s => s.id === activeSkin) || allSkins[0];
 
@@ -306,7 +311,7 @@ const HangarView: React.FC<HangarViewProps> = ({
               className="z-20 filter relative w-full h-full flex items-center justify-center"
             >
               <img
-                src={activeSkin.startsWith('custom_') ? (getCustomSkinImage(activeSkin) || '/images/skin_aerobrasil.png') : `/images/skin_${activeSkin}.png`}
+                src={((currentSkinItem as any).coverImageBase64 || getCustomSkinImage(activeSkin)) ? ((currentSkinItem as any).coverImageBase64 || getCustomSkinImage(activeSkin)) : `/images/skin_${activeSkin}.png`}
                 alt={currentSkinItem.name}
                 referrerPolicy="no-referrer"
                 className="w-40 h-40 md:w-52 md:h-52 object-contain mix-blend-screen filter drop-shadow-[0_15px_30px_rgba(0,0,0,1)] select-none pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500"
@@ -369,7 +374,7 @@ const HangarView: React.FC<HangarViewProps> = ({
           <div className="border-t border-white/5 pt-4">
             <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Especificações Técnicas</div>
             <div className="flex flex-wrap gap-2">
-              {currentSkinItem.specs.map((spec, idx) => (
+              {(currentSkinItem.specs || ['Design Exclusivo', 'Custom Edition']).map((spec, idx) => (
                 <span key={idx} className="text-[9px] font-black uppercase tracking-wide px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg text-white/90">
                   ⚡ {spec}
                 </span>
@@ -411,7 +416,7 @@ const HangarView: React.FC<HangarViewProps> = ({
               onClick={onNavigateToStore}
               className="text-xs font-black uppercase tracking-wide text-[#f59e0b] hover:underline flex items-center gap-1 active:scale-95 transition-transform"
             >
-              🚀 Ir para a Loja comprar Skins
+              🚀 Ir para a Loja de Aeronaves
             </button>
           </motion.div>
 
@@ -437,7 +442,7 @@ const HangarView: React.FC<HangarViewProps> = ({
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${skin.previewColorGradient} flex items-center justify-center p-1.5 flex-shrink-0 shadow-lg border border-white/5 relative overflow-hidden`}>
                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
                     <img
-                      src={`/images/skin_${skin.id}.png`}
+                      src={((skin as any).imageBase64 || getCustomSkinImage(skin.id)) ? ((skin as any).imageBase64 || getCustomSkinImage(skin.id)) : `/images/skin_${skin.id}.png`}
                       alt={skin.name}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-contain mix-blend-screen drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] transform group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 select-none pointer-events-none"

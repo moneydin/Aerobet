@@ -10,8 +10,8 @@ interface FullHistoryModalProps {
 
 const FullHistoryModal: React.FC<FullHistoryModalProps> = ({ history, onClose }) => {
   return (
-    <div className="fixed inset-0 z-[110] flex items-start justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-300">
-      <div className="bg-[#1b1c1d] w-full max-w-4xl rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in slide-in-from-top-4 duration-300">
+      <div className="bg-[#1b1c1d] w-full max-w-4xl rounded-2xl sm:rounded-3xl border border-white/10 shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-white/5">
           <div className="flex flex-col">
             <h3 className="font-black italic uppercase tracking-tighter text-xl text-white">Histórico de Rodadas</h3>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { getCustomSkins, saveCustomSkin, getCustomSkinImage, CustomSkin } from '../src/utils/customSkins';
+import { getCustomSkins, saveCustomSkin, getCustomSkinImage, CustomSkin, useCustomSkins } from '../src/utils/customSkins';
 
 interface SkinItem {
   id: string;
@@ -74,7 +74,7 @@ interface StoreModalProps {
   isInline?: boolean;
 }
 
-const PRODUCTS_LIST: StoreProduct[] = [
+export const PRODUCTS_LIST: StoreProduct[] = [
   // --- SKINS ---
   {
     id: 'fenix',
@@ -408,13 +408,32 @@ const StoreModal: React.FC<StoreModalProps> = ({
     }
   ];
 
-  const [customSkinsList, setCustomSkinsList] = useState<CustomSkin[]>([]);
+  const customSkinsList = useCustomSkins();
 
-  React.useEffect(() => {
-    setCustomSkinsList(getCustomSkins());
-  }, []);
+  const allProducts = useMemo(() => {
+    const customMapped = customSkinsList.filter(s => s.isActive !== false).map((cs: any) => ({
+      ...cs,
+      id: cs.id,
+      name: cs.name,
+      price: cs.price,
+      priceType: cs.priceType,
+      category: 'skin' as const,
+      description: cs.description || 'Skin customizada exclusiva.',
+      previewColorGradient: cs.previewColorGradient || 'from-gray-700 to-black',
+      bgColor: cs.bgColor || 'bg-gray-500/10 border-gray-500/20',
+      badge: cs.badge || 'Exclusivo',
+      rating: cs.rating || 5.0,
+      reviewsCount: cs.reviewsCount || 0,
+      specs: cs.specs && cs.specs.length ? cs.specs : ['Aeronave Customizada', 'Design Exclusivo'],
+      flipX: cs.flipX
+    }));
+    
+    // Override default products with custom ones if same ID, and filter out disabled default skins
+    const disabledIds = customSkinsList.filter(s => s.isActive === false).map(s => s.id);
+    const defaults = PRODUCTS_LIST.filter(p => !customMapped.find(c => c.id === p.id) && !disabledIds.includes(p.id));
 
-  const allProducts = useMemo(() => [...PRODUCTS_LIST, ...customSkinsList], [customSkinsList]);
+    return [...defaults, ...customMapped];
+  }, [customSkinsList]);
 
   // Filter & Search & Sort logic
   const filteredProducts = useMemo(() => {
@@ -575,7 +594,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
     return (
       <div className={isInline 
         ? "relative w-full bg-[#0b0c0d] rounded-2xl border border-white/5 overflow-hidden shadow-2xl flex flex-col min-h-[600px] text-white"
-        : "relative w-full max-w-5xl bg-[#0b0c0d] rounded-[32px] border border-white/10 overflow-hidden shadow-[2xl] flex flex-col max-h-[95vh] text-white"
+        : "relative w-full max-w-5xl bg-[#0b0c0d] rounded-none lg:rounded-[32px] border-none lg:border border-white/10 overflow-hidden shadow-[2xl] flex flex-col h-[100dvh] lg:h-auto lg:max-h-[95vh] text-white z-10"
       }>
         {/* Glow Header */}
         <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-[#e51a31]/5 rounded-full blur-[120px] pointer-events-none" />
@@ -686,7 +705,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                 }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider shrink-0 transition-all ${activeTab === 'skins' ? 'bg-[#e51a31] text-white' : 'text-white/50 hover:text-white hover:bg-white/5'}`}
               >
-                ✈️ Skins
+                ✈️ Frota (Aeronaves)
               </button>
               <button 
                 onClick={() => {
@@ -828,7 +847,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                       onClick={() => setActiveTab('skins')}
                       className="px-2 py-1 bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 text-[8px] font-black uppercase tracking-wider rounded-lg transition-colors select-none cursor-pointer"
                     >
-                      Trocar por Skins
+                      Ver Aeronaves
                     </button>
                   </div>
                 </div>
@@ -922,9 +941,10 @@ const StoreModal: React.FC<StoreModalProps> = ({
                             <div className={`absolute w-44 h-44 rounded-full bg-gradient-to-br ${skin.previewColorGradient} opacity-40 filter blur-3xl ${isOwned ? 'animate-pulse' : 'brightness-50'}`} />
                             
                             <img
-                              src={skin.id.startsWith('custom_') ? (getCustomSkinImage(skin.id) || '/images/skin_aerobrasil.png') : `/images/skin_${skin.id}.png`}
+                              src={((skin as any).coverImageBase64 || getCustomSkinImage(skin.id)) ? ((skin as any).coverImageBase64 || getCustomSkinImage(skin.id)) : `/images/skin_${skin.id}.png`}
                               alt={skin.name}
                               referrerPolicy="no-referrer"
+                              style={{ transform: (skin as any).flipX ? 'scaleX(-1)' : 'none' }}
                               className={`w-40 h-40 object-contain mix-blend-screen filter drop-shadow-[0_12px_24px_rgba(0,0,0,1)] group-hover:scale-125 transition-transform duration-500 select-none pointer-events-none z-20 ${
                                 isOwned ? '' : 'grayscale contrast-125 brightness-40'
                               }`}
@@ -941,7 +961,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                             {skin.description}
                           </p>
                           <div className="flex flex-wrap gap-1 pt-1">
-                            {skin.specs.slice(0, 2).map((sp, idx) => (
+                            {(skin.specs || []).slice(0, 2).map((sp, idx) => (
                               <span key={idx} className="bg-white/[0.04] text-white/40 text-[8px] px-1.5 py-0.5 rounded">
                                 {sp}
                               </span>
@@ -1025,9 +1045,10 @@ const StoreModal: React.FC<StoreModalProps> = ({
                                 <div className={`absolute w-48 h-48 rounded-full bg-gradient-to-br ${(p as SkinItem).previewColorGradient} opacity-40 filter blur-3xl animate-pulse`} />
                                 
                                 <img
-                                  src={p.id.startsWith('custom_') ? (getCustomSkinImage(p.id) || '/images/skin_aerobrasil.png') : `/images/skin_${p.id}.png`}
+                                  src={((p as any).coverImageBase64 || getCustomSkinImage(p.id)) ? ((p as any).coverImageBase64 || getCustomSkinImage(p.id)) : `/images/skin_${p.id}.png`}
                                   alt={p.name}
                                   referrerPolicy="no-referrer"
+                                  style={{ transform: (p as any).flipX ? 'scaleX(-1)' : 'none' }}
                                   className="w-44 h-44 object-contain mix-blend-screen filter drop-shadow-[0_12px_24px_rgba(0,0,0,1)] group-hover:scale-125 transition-transform duration-500 select-none pointer-events-none z-20"
                                 />
                               </div>
@@ -1062,7 +1083,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                             {/* Categories and stars */}
                             <div className="flex items-center justify-between">
                               <span className="text-[8px] uppercase tracking-widest font-black text-white/40">
-                                {p.category === 'skin' ? '🌌 Cosméticos / Skins' : p.category === 'flight' ? '✈️ Combustível de Voo' : '💰 Câmbio Fichas'}
+                                {p.category === 'skin' ? '🌌 Aeronaves' : p.category === 'flight' ? '✈️ Combustível de Voo' : '💰 Câmbio Fichas'}
                               </span>
                               <div className="flex items-center gap-1 font-mono text-[9px] text-yellow-500">
                                 <span>★</span>
@@ -1081,7 +1102,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
 
                             {/* Specs badges layout */}
                             <div className="flex flex-wrap gap-1 pt-1.5">
-                              {p.specs.slice(0, 2).map((sp, idx) => (
+                              {(p.specs || []).slice(0, 2).map((sp, idx) => (
                                 <span key={idx} className="bg-white/[0.04] text-white/50 text-[8px] px-1.5 py-0.5 rounded">
                                   {sp}
                                 </span>
@@ -1240,7 +1261,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
         {/* REALISTIC CHECKOUT SIMULATOR DIALOG */}
         <AnimatePresence>
           {isCheckoutOpen && (
-            <div className="fixed inset-0 z-[180] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[180] flex items-center justify-center p-2 sm:p-4">
               
               {/* Black backdrop block code */}
               <motion.div 
@@ -1478,7 +1499,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 lg:p-4">
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

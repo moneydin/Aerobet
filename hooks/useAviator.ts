@@ -94,11 +94,12 @@ export const useAviator = (rtp: number = 97) => {
       if (status === GameStatus.FLYING && flightStartTimeRef.current !== null) {
         const elapsed = (Date.now() - flightStartTimeRef.current) / 1000;
         const currentMultiplier = Math.pow(1.12, elapsed);
-        setMultiplier(prev => {
-          const nextVal = parseFloat(currentMultiplier.toFixed(2));
-          // Impede estritamente regressão no multiplicador visual durante o voo
-          return Math.max(prev, nextVal);
-        });
+        const nextVal = parseFloat(currentMultiplier.toFixed(2));
+        
+        // Em vez de usar prev no setState (que pode causar race condition), 
+        // apenas atualizamos se ainda estamos ativamente voando usando Ref validation se tivéssemos.
+        // Como o status do loop de render usa a closure, we use a simple setMultiplier.
+        setMultiplier(nextVal);
       } else if (status === GameStatus.WAITING && countdownTargetRef.current !== null) {
         const remaining = Math.max(0, countdownTargetRef.current - Date.now());
         setCountdown(remaining);

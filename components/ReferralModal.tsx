@@ -25,8 +25,8 @@ const ReferralModal: React.FC<ReferralModalProps> = ({ onClose, referralCode, re
   const pendingCount = referrals.filter(r => r.status !== 'claimed').length;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
-      <div className="bg-[#09090b] w-full max-w-2xl rounded-[2rem] border border-white/10 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden relative">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 font-sans">
+      <div className="bg-[#09090b] w-full max-w-2xl rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden relative">
         
         {/* Decorative Background */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#28a745]/10 rounded-full blur-[80px] pointer-events-none" />

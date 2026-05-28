@@ -159,8 +159,8 @@ const WalletModal: React.FC<WalletModalProps> = ({ onClose, onDepositConfirm, on
   const rolloverProgress = userStats.rolloverTarget > 0 ? (userStats.rolloverCurrent / userStats.rolloverTarget) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300 font-sans">
-      <div className="bg-[#09090b] w-full max-w-md rounded-[2rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[92vh] overflow-hidden relative">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300 font-sans">
+      <div className="bg-[#09090b] w-full max-w-md rounded-[1.5rem] sm:rounded-[2rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col max-h-[95dvh] sm:max-h-[92vh] overflow-hidden relative">
         
         {/* Background Gradients */}
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#141516] to-transparent pointer-events-none" />

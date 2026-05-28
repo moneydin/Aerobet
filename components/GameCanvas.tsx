@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GameHistory, GameStatus, UserStats, Mission } from '../types';
 import AIPredictor from './AIPredictor';
 import BankrollStatus from './BankrollStatus';
-import { getCustomSkinImage, getCustomSkins } from '../src/utils/customSkins';
+import { getCustomSkinImage, getCustomSkins, useCustomSkins } from '../src/utils/customSkins';
 
 interface GameCanvasProps {
   status: GameStatus;
@@ -308,38 +308,50 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     trackedMission,
     activeSkin = 'aerobrasil'
 }) => {
+  const customSkins = useCustomSkins();
+
   let skinConfig = SKIN_COLORS[activeSkin as keyof typeof SKIN_COLORS] || SKIN_COLORS.aerobrasil;
-  let customOffset = { x: -90, y: -90, scale: 1.1, rotation: 12 };
+  let customOffset: any = { 
+    x: -90, y: -90, scale: 1.1, rotation: 12, flipX: false,
+    start: { x: -90, y: -90, scale: 1.1, rotation: 12 }
+  };
   
-  if (activeSkin?.startsWith('custom_')) {
-    const customSkins = getCustomSkins();
-    const s = customSkins.find(cs => cs.id === activeSkin);
-    if (s) {
-      customOffset = {
-        x: s.offsetX ?? -90,
+  let s = customSkins.find(cs => cs.id === activeSkin);
+
+  if (s) {
+    customOffset = {
+      x: s.offsetX ?? -90,
         y: s.offsetY ?? -90,
         scale: s.scale ?? 1.1,
-        rotation: s.rotation ?? 12
+        rotation: s.rotation ?? 12,
+        flipX: s.flipX || false,
+        start: {
+            x: s.offsetXStart ?? s.offsetX ?? -90,
+            y: s.offsetYStart ?? s.offsetY ?? -90,
+            scale: s.scaleStart ?? s.scale ?? 1.1,
+            rotation: s.rotationStart ?? s.rotation ?? 12,
+        }
       };
       if (s.lineColor || s.smokeColor) {
         // Clone config to override colors
-        skinConfig = { ...skinConfig };
+        skinConfig = { ...skinConfig } as any;
         
         if (s.smokeColor) {
            skinConfig.fire = [
              { offset: '0%', color: '#ffffff', opacity: 1 },
-             { offset: '20%', color: '#ffffff', opacity: 1 },
-             { offset: '55%', color: s.smokeColor, opacity: 1 },
-             { offset: '100%', color: s.smokeColor, opacity: 0 }
+             { offset: '20%', color: s.smokeColor, opacity: 1 },
+             { offset: '55%', color: s.smokeColor2 || s.smokeColor, opacity: 1 },
+             { offset: '100%', color: s.smokeColor2 || s.smokeColor, opacity: 0 }
            ];
            skinConfig.areaColor = s.smokeColor;
+           (skinConfig as any).areaColor2 = s.smokeColor2 || s.smokeColor;
         }
         if (s.lineColor) {
            skinConfig.areaColor = s.lineColor;
+           (skinConfig as any).lineColor2 = s.lineColor2 || s.lineColor;
         }
       }
     }
-  }
 
   const [isShaking, setIsShaking] = useState(false);
   const [showHud, setShowHud] = useState(true); 
@@ -348,6 +360,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const gridRef = useRef<HTMLDivElement>(null);
   const multiplierTextRef = useRef<HTMLHeadingElement>(null);
   const planeGroupRef = useRef<SVGGElement>(null);
+  const customGroupRef = useRef<SVGGElement>(null);
+  const customImageRef = useRef<SVGImageElement>(null);
   const curvePathRef = useRef<SVGPathElement>(null);
   const areaPathRef = useRef<SVGPathElement>(null);
   
@@ -388,13 +402,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       crashStartTimeRef.current = null;
       flightStartTimeRef.current = null;
       // Reset visual elements immediately
-      if (planeGroupRef.current) planeGroupRef.current.setAttribute('transform', `translate(160, 500) rotate(0) scale(1)`);
+      if (planeGroupRef.current) planeGroupRef.current.setAttribute('transform', `translate(160, 500) rotate(0) scale(1.6)`);
       if (curvePathRef.current) curvePathRef.current.setAttribute('d', '');
       if (areaPathRef.current) areaPathRef.current.setAttribute('d', '');
     }
 
     prevStatusRef.current = status;
   }, [status]);
+
+  const customOffsetRef = useRef(customOffset);
+  useEffect(() => {
+    customOffsetRef.current = customOffset;
+  }, [customOffset]);
 
   // --- GAME LOOP ---
   useEffect(() => {
@@ -459,7 +478,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
         // Apply Transform to Plane Group
         if (planeGroupRef.current) {
-            const scale = 1.1 + progress * 0.15;
+            const scale = 1.6 + progress * 0.25;
             planeGroupRef.current.setAttribute('transform', `translate(${planeX}, ${planeY + vibration}) rotate(${rotation}) scale(${scale})`);
         }
 
@@ -501,7 +520,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         const rotation = lastFlightPositionRef.current.rotation - (elapsed * 50);
 
         if (planeGroupRef.current) {
-             planeGroupRef.current.setAttribute('transform', `translate(${planeX}, ${planeY}) rotate(${rotation}) scale(1)`);
+             planeGroupRef.current.setAttribute('transform', `translate(${planeX}, ${planeY}) rotate(${rotation}) scale(1.6)`);
         }
 
       } else {
@@ -513,7 +532,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
          // Bobbing effect while waiting
          const bobbing = Math.sin(time / 250) * 1.5;
          if (planeGroupRef.current) {
-             planeGroupRef.current.setAttribute('transform', `translate(160, ${500 + bobbing}) rotate(0) scale(1.1)`);
+             planeGroupRef.current.setAttribute('transform', `translate(160, ${500 + bobbing}) rotate(0) scale(1.6)`);
          }
       }
 
@@ -523,6 +542,27 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       if (gridRef.current) {
         gridRef.current.style.transform = `translate3d(${-offsetRef.current.x}px, ${-offsetRef.current.y}px, 0)`;
+      }
+
+      // Smooth transition for custom offsets
+      let easeProgress = 0;
+      if (status === GameStatus.FLYING) {
+         const tMult = multiplierRef.current;
+         const flightTimeElapsed = Math.max(0, Math.log(Math.max(1.0001, tMult)) / Math.log(1.12));
+         easeProgress = Math.min(1, flightTimeElapsed / 1.0); 
+      } else if (status === GameStatus.CRASHED) {
+         easeProgress = 1;
+      }
+      const co = customOffsetRef.current;
+      const curOffsetX = co.start.x + (co.x - co.start.x) * easeProgress;
+      const curOffsetY = co.start.y + (co.y - co.start.y) * easeProgress;
+      const curScale = co.start.scale + (co.scale - co.start.scale) * easeProgress;
+      const curRotation = co.start.rotation + (co.rotation - co.start.rotation) * easeProgress;
+      
+      if (customGroupRef.current) customGroupRef.current.setAttribute('transform', `translate(-10, -5) scale(${curScale}) rotate(${curRotation})`);
+      if (customImageRef.current) {
+          customImageRef.current.setAttribute('x', String(curOffsetX));
+          customImageRef.current.setAttribute('y', String(curOffsetY));
       }
       
       requestRef.current = requestAnimationFrame(animate);
@@ -832,35 +872,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           </filter>
           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={skinConfig.areaColor} stopOpacity="0.4" />
-            <stop offset="100%" stopColor={skinConfig.areaColor} stopOpacity="0" />
+            <stop offset="100%" stopColor={(skinConfig as any).areaColor2 || skinConfig.areaColor} stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="lineColorGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={(skinConfig as any).lineColor2 || skinConfig.areaColor} />
+            <stop offset="100%" stopColor={skinConfig.areaColor} />
           </linearGradient>
         </defs>
 
-        {isWaiting && (
-          <g className="animate-in fade-in duration-500">
-            {/* Unidade Técnica de Abastecimento (Caminhão/Box) */}
-            <g transform="translate(40, 520)">
-              <rect x="0" y="0" width="80" height="30" rx="4" fill="#141516" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-              <rect x="60" y="-8" width="30" height="35" rx="3" fill="#0c0d0e" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-              <rect x="5" y="-12" width="50" height="15" rx="7" fill="#e51a31" stroke="#8b0010" strokeWidth="0.5" />
-              <text x="30" y="-2" fill="white" fontSize="6" fontWeight="900" textAnchor="middle" opacity="0.6">GASOLINA</text>
-              <circle cx="15" cy="30" r="6" fill="#000" />
-              <circle cx="75" cy="30" r="6" fill="#000" />
-            </g>
-            {/* Mangueira de combustível animada */}
-            <path 
-              d={`M 110 530 Q 135 540, 115 512`} // Hardcoded endpoint near plane default pos
-              fill="none" 
-              stroke="#e51a31" 
-              strokeWidth="2" 
-              strokeDasharray="4,6" 
-              strokeLinecap="round"
-              opacity="0.4"
-            >
-              <animate attributeName="stroke-dashoffset" from="10" to="0" dur="0.5s" repeatCount="indefinite" />
-            </path>
-          </g>
-        )}
+        {/* Fuel Unit Removed */}
 
         {!isCrashed && (
            <ellipse 
@@ -882,7 +902,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             <path 
                 ref={curvePathRef}
                 fill="none" 
-                stroke={skinConfig.areaColor} 
+                stroke="url(#lineColorGradient)" 
                 strokeWidth="12" 
                 strokeLinecap="round" 
                 strokeOpacity="0.4" 
@@ -906,14 +926,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           <rect x="-83" y="-8.5" width="8" height="17" rx="2" fill="#2d2d30" stroke="#0c0c0e" strokeWidth="0.5" />
           
           {/* 3D Rendered Plane Image dynamically mapped to active skin */}
-          <g transform={`translate(-10, -5) scale(${customOffset.scale}) rotate(${customOffset.rotation})`}>
+          <g ref={customGroupRef} transform={`translate(-10, -5) scale(${customOffset.start.scale}) rotate(${customOffset.start.rotation})`}>
             <image 
-              href={activeSkin?.startsWith('custom_') ? (getCustomSkinImage(activeSkin) || `/images/skin_aerobrasil.png`) : `/images/skin_${activeSkin || 'aerobrasil'}.png`} 
-              x={customOffset.x} 
-              y={customOffset.y} 
+              ref={customImageRef}
+              href={s ? (getCustomSkinImage(activeSkin!) || `/images/skin_${activeSkin}.png`) : `/images/skin_${activeSkin || 'aerobrasil'}.png`} 
+              x={customOffset.start.x} 
+              y={customOffset.start.y} 
               width="180" 
               height="180" 
-              style={{ mixBlendMode: 'screen', filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.85))' }}
+              style={{ 
+                mixBlendMode: 'screen', 
+                filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.85))',
+                transform: customOffset.flipX ? 'scaleX(-1)' : 'none',
+                transformOrigin: 'center'
+              }}
             />
           </g>
           

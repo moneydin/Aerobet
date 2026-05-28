@@ -618,7 +618,7 @@ const BetControl: React.FC<BetControlProps> = ({
                               </span>
                           </div>
                       ) : (
-                          <span className="text-[7.5px] sm:text-[9.5px] font-black uppercase">Start</span>
+                          <span className="text-[7.5px] sm:text-[9.5px] font-black uppercase">Iniciar</span>
                       )}
                   </div>
               ) : (
@@ -644,7 +644,7 @@ const BetControl: React.FC<BetControlProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <div className={`flex items-center justify-between px-2 py-1.5 rounded-xl border transition-all ${autoBetEnabled ? 'bg-[#913ef2]/10 border-[#913ef2]/40' : 'bg-[#141516] border-white/5'}`}>
               <div className="flex flex-col">
-                <span className="text-[8px] sm:text-[9px] font-black uppercase text-white/50 tracking-wider">Auto Bet</span>
+                <span className="text-[8px] sm:text-[9px] font-black uppercase text-white/50 tracking-wider">Aposta Auto</span>
                 <span className={`text-[7px] sm:text-[8px] font-bold uppercase transition-colors ${autoBetEnabled ? 'text-[#913ef2]' : 'text-white/20'}`}>
                   {autoBetEnabled ? 'Ativado' : 'Off'}
                 </span>
