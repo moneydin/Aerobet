@@ -14,7 +14,7 @@ export const INITIAL_CASH = 3000.00;
 export const MIN_BET = 1.00;
 export const MAX_BET = 500.00;
 export const TICK_RATE = 16; // 60 FPS para resposta instantânea
-export const WAIT_TIME = 5000;
+export const WAIT_TIME = 8000;
 
 export const getMultiplierColor = (m: number) => {
   if (m < 2) return '#34b1e2'; // Blue

@@ -271,6 +271,15 @@ const App: React.FC = () => {
   const [revenueStats, setRevenueStats] = usePersistentState<{ subscriptions: number; missions: number }>('aerobet_revenue', { subscriptions: 0, missions: 0 });
   
   const { status, multiplier, countdown, nextRoundServerSeedHash, forceCrashNow, setNextRoundResult, updateRtp, requestCashout } = useAviator(rtp);
+  
+  useEffect(() => {
+    if (status === GameStatus.FLYING) {
+      sounds.startEngine(multiplier);
+    } else {
+      sounds.stopEngine();
+    }
+  }, [status, multiplier]);
+
   const [history, setHistory] = useState<GameHistory[]>([]);
   const [myHistory, setMyHistory] = useState<LiveBet[]>([]);
   const multiplierRef = useRef(multiplier);
@@ -321,6 +330,9 @@ const App: React.FC = () => {
   const [aerocoinBalance, setAerocoinBalance] = useState<number>(0);
   const [fantasyFlightsLeft, setFantasyFlightsLeft] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  useEffect(() => {
+    sounds.setMute(isMuted);
+  }, [isMuted]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUsername, setCurrentUsername] = usePersistentState<string>('aerobet_username', "Visitante");
   const [userAvatar, setUserAvatar] = useState("https://api.dicebear.com/7.x/avataaars/svg?seed=Visitante&backgroundColor=b6e3f4");
@@ -804,6 +816,11 @@ const App: React.FC = () => {
           return;
       }
       
+      if (!activeEventId && amount > 500) {
+          handleAddNotification("Limite Excedido", "O valor máximo por aposta é de R$ 500,00.", "warning");
+          return;
+      }
+
       let currentAvailableBalance = balance;
       if (!useFreeBet && !activeEventId) {
           if (slot !== 1 && nextRoundBet1 && !nextRoundBet1.isFreeFlight) currentAvailableBalance -= nextRoundBet1.amount;
@@ -1480,7 +1497,10 @@ const App: React.FC = () => {
           // Reset current round bets when waiting for next round
           setBet1(null);
           setBet2(null);
+          sounds.playTakeoffSequence();
       } else if (status === GameStatus.FLYING && lastStatusRef.current !== GameStatus.FLYING) {
+          sounds.stopTakeoffSequence();
+          sounds.playTakeoff();
           const processBet = async (bet: any, setter: any, slot: number) => {
               if (bet) {
                   const newBet: Bet = {
@@ -1574,6 +1594,8 @@ const App: React.FC = () => {
               }
           }
       } else if (status === GameStatus.CRASHED && lastStatusRef.current !== GameStatus.CRASHED) {
+          sounds.stopTakeoffSequence();
+          sounds.playFlyAway();
           const handleResult = async (bet: Bet | null, setter: any, slotIndicator: 1|2) => { 
               if (bet && bet.status === 'active' && activeBetsRef.current[`bet${slotIndicator}` as 'bet1'|'bet2']) {
                   activeBetsRef.current[`bet${slotIndicator}` as 'bet1'|'bet2'] = false;

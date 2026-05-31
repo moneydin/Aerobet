@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getCustomSkins, saveCustomSkin, toggleCustomSkinActive, CustomSkin } from '../../src/utils/customSkins';
+import { getCustomSkins, saveCustomSkin, toggleCustomSkinActive, deleteCustomSkin, CustomSkin } from '../../src/utils/customSkins';
 import { PRODUCTS_LIST } from '../StoreModal';
 
 export default function AeronavesAdmin() {
@@ -86,6 +86,29 @@ export default function AeronavesAdmin() {
   useEffect(() => {
     refreshAeronaves();
   }, []);
+
+  const handleDownloadImage = () => {
+    if (newAeronave.imageBase64) {
+      const a = document.createElement("a");
+      a.href = newAeronave.imageBase64;
+      a.download = `${newAeronave.name || 'aeronave'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  const handleDeleteAeronave = async () => {
+    if (newAeronave.id && confirm("Tem certeza que deseja excluir esta aeronave? Esta ação não pode ser desfeita.")) {
+      await deleteCustomSkin(newAeronave.id);
+      refreshAeronaves();
+      setNewAeronave({
+        name: '', price: 100, priceType: 'co', previewColorGradient: 'from-[#000000] to-[#1a1c23]',
+        bgColor: 'bg-[#1b1c1d] border-[#34b1e2]/20', smokeColor: '#ff0000', smokeColor2: '#ff0000',
+        lineColor: '#ff0000', lineColor2: '#ff0000', offsetX: -90, offsetY: -90, scale: 1.1, rotation: 12, flipX: false
+      });
+    }
+  };
 
   const handleSaveAeronave = () => {
     if (!newAeronave.name || !newAeronave.imageBase64) {
@@ -497,6 +520,24 @@ export default function AeronavesAdmin() {
                   <div className="absolute inset-0 bg-white/20 w-1/2 -skew-x-[30deg] translate-x-[-200%] hover:animate-[shine_1s_ease-in-out_infinite]" />
                   <span>Publicar Aeronave na Loja Oficial</span> 🚀
                 </button>
+
+                <div className="flex gap-4">
+                  <button onClick={handleDownloadImage} disabled={!newAeronave.imageBase64} className="flex-1 bg-sky-500/10 border border-sky-500/20 text-sky-400 py-4 rounded-xl font-bold uppercase tracking-wider hover:bg-sky-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Baixar
+                  </button>
+                  
+                  {newAeronave.id && (
+                    <button onClick={handleDeleteAeronave} className="flex-1 bg-red-500/10 border border-red-500/20 text-red-400 py-4 rounded-xl font-bold uppercase tracking-wider hover:bg-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Excluir
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

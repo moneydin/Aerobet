@@ -4,6 +4,7 @@ import { GameHistory, GameStatus, UserStats, Mission } from '../types';
 import AIPredictor from './AIPredictor';
 import BankrollStatus from './BankrollStatus';
 import { getCustomSkinImage, getCustomSkins, useCustomSkins } from '../src/utils/customSkins';
+import { WAIT_TIME } from '../constants';
 
 interface GameCanvasProps {
   status: GameStatus;
@@ -463,15 +464,30 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         let planeX = Math.min(maxX, calculatedX);
         let planeY = Math.max(minY, calculatedY);
 
-        // Cruising Oscillation
-        if (calculatedY < minY) {
-            planeY += Math.sin(time / 450) * 10;
+        // Smooth up and down oscillation during flight (Turbulence / Air Pockets)
+        let flightOscillation = 0;
+        let rotationOscillation = 0;
+        
+        if (flightTimeElapsed > 1.0) {
+            // Amplitude grows gently as game progresses, maxing out at 35px
+            const oscillationMag = Math.min(35, 10 + progress * 50); 
+            // Slower, majestic sine wave
+            flightOscillation = Math.sin(time / 900) * oscillationMag;
+            // Cosine wave for rotation gives a natural pitch up/down feeling
+            rotationOscillation = Math.cos(time / 900) * (oscillationMag / 2.5);
         }
 
-        const rotation = -5 - Math.min(25, (planeY < floorY - 5 ? (progress * 20) + (flightTimeElapsed * 2) : 0));
+        // Apply oscillation but never go safely below floor
+        if (calculatedY < floorY - 20) {
+           planeY += flightOscillation;
+           planeY = Math.max(minY - 20, Math.min(floorY - 20, planeY));
+        }
+
+        const baseRotation = -5 - Math.min(25, (planeY < floorY - 5 ? (progress * 20) + (flightTimeElapsed * 2) : 0));
+        const rotation = baseRotation + rotationOscillation;
         
-        // Vibration
-        const vibration = Math.sin(time / 10) * (0.5 + progress * 2);
+        // Engine Vibration
+        const vibration = Math.sin(time / 15) * (0.8 + progress * 2.5);
         
         // Save for crash
         lastFlightPositionRef.current = { x: planeX, y: planeY, rotation };
@@ -795,7 +811,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                   <div className="w-24 h-1 bg-white/5 rounded-full overflow-hidden relative border border-white/5">
                      <div 
                        className="h-full bg-[#e51a31] transition-all duration-100 ease-linear shadow-[0_0_8px_rgba(229,26,49,0.5)]"
-                       style={{ width: `${(countdown / 5000) * 100}%` }}
+                       style={{ width: `${(countdown / WAIT_TIME) * 100}%` }}
                      />
                   </div>
                </div>

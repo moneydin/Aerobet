@@ -10,7 +10,7 @@ import { getAuth, signInAnonymously } from "firebase/auth";
 import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const WAIT_TIME = 5000;
+const WAIT_TIME = 8000;
 const LOGIC_TICK_RATE = 50;
 
 enum GameStatus {
@@ -128,7 +128,7 @@ async function startServer() {
 
     const rtpModifier = rtp / 100;
     let cp = Math.max(1.0, rtpModifier / (1 - floatValue));
-    cp = Math.min(cp, 1000000);
+    cp = Math.min(cp, 1000.00);
     currentSeeds = { server: serverSeed, client: clientSeed, round: parseInt(roundId), hash: hash };
     return cp;
   }

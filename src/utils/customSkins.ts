@@ -30,7 +30,7 @@ export interface CustomSkin {
 }
 
 import { db } from '../firebase';
-import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 export const getCustomSkins = (): CustomSkin[] => {
@@ -118,5 +118,20 @@ export const listenToCustomSkins = (callback?: (skins: CustomSkin[]) => void) =>
        if (callback) callback(dbSkins);
     }
   }, (err) => console.log('Err syncing skins', err));
+};
+
+export const deleteCustomSkin = async (skinId: string) => {
+  const skins = getCustomSkins();
+  const updatedSkins = skins.filter(s => s.id !== skinId);
+  localStorage.setItem('custom_store_skins', JSON.stringify(updatedSkins));
+  
+  try {
+    await deleteDoc(doc(db, 'custom_skins', skinId));
+  } catch (error) {
+    console.error('Error deleting skin from Firebase:', error);
+  }
+  
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('custom-skins-updated'));
+  return updatedSkins;
 };
 

@@ -252,11 +252,8 @@ const SideMenu: React.FC<SideMenuProps> = ({
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
           />
 
-        </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t border-white/5">
-             <div className="bg-[#28a745]/10 rounded-xl p-4 border border-[#28a745]/20 relative overflow-hidden group">
+          <div className="mt-auto pt-6 shrink-0">
+              <div className="bg-[#28a745]/10 rounded-xl p-4 border border-[#28a745]/20 relative overflow-hidden group">
                  <div className="absolute inset-0 bg-gradient-to-r from-[#28a745]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                  <div className="relative z-10 flex justify-between items-start mb-2">
                     <h4 className="font-black italic uppercase text-white">Indique e Ganhe</h4>
@@ -273,8 +270,13 @@ const SideMenu: React.FC<SideMenuProps> = ({
                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                      Ver Painel
                  </button>
-             </div>
-             <div className="mt-4 flex justify-between text-[10px] text-white/30 uppercase font-bold tracking-widest">
+              </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/5 shrink-0 bg-[#141516] pb-8 md:pb-4">
+             <div className="flex justify-between text-[10px] text-white/30 uppercase font-bold tracking-widest">
                  <span>v2.5.0</span>
                  <span>AERObet Inc.</span>
              </div>
