@@ -11,7 +11,8 @@ import {
   orderBy, 
   addDoc, 
   serverTimestamp,
-  where
+  where,
+  deleteDoc
 } from 'firebase/firestore';
 import { CabineSession, CabineMessage } from '../../types';
 
@@ -159,6 +160,19 @@ export const createCabineSession = async (params: {
   const share = params.totalBankroll / 2;
   const id = `cabine-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
   
+  // Valida se já existe uma cabine com o mesmo nome (ignora maiúsculas/minúsculas)
+  try {
+    const colRef = collection(db, 'cabines');
+    const q = query(colRef, where('name', '==', params.name.trim()));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      throw new Error(`Já existe uma cabine com o nome "${params.name.trim()}". Escolha um nome diferente.`);
+    }
+  } catch (e: any) {
+    if (e.message && e.message.includes('Já existe')) throw e;
+    console.warn('Error checking unique cabine name:', e);
+  }
+
   const newCabine: CabineSession = {
     id,
     name: params.name.trim(),
@@ -179,10 +193,12 @@ export const createCabineSession = async (params: {
     profit: 0
   };
 
-  // Salva no Firestore
+  // Salva no Firestore com flags de presença para cleanup automático
   try {
     await setDoc(doc(db, 'cabines', id), {
       ...newCabine,
+      pilotOnline: true,
+      copilotOnline: false,
       updatedAt: serverTimestamp()
     });
   } catch (e) {
@@ -249,6 +265,7 @@ export const joinCabineSession = async (params: {
       copilotId: params.copilotId,
       copilotName: params.copilotName,
       status: 'active',
+      copilotOnline: true,
       updatedAt: serverTimestamp()
     });
   } catch (e) {
@@ -312,6 +329,31 @@ export const joinCabineByNameAndPassword = async (params: {
     copilotId: params.copilotId,
     copilotName: params.copilotName
   });
+};
+
+export const updateCabinePresence = async (cabineId: string, role: 'pilot' | 'copilot', isOnline: boolean) => {
+  try {
+    const field = role === 'pilot' ? 'pilotOnline' : 'copilotOnline';
+    const docRef = doc(db, 'cabines', cabineId);
+    
+    await updateDoc(docRef, {
+      [field]: isOnline,
+      updatedAt: serverTimestamp()
+    });
+
+    // Se ambos saíram, exclui a cabine
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (!data.pilotOnline && !data.copilotOnline) {
+        // Exclui também as subcoleções (mensagens e rádio) se possível, mas aqui excluímos o doc principal
+        await deleteDoc(docRef);
+        console.log(`Cabine ${cabineId} removida por inatividade de ambos os jogadores.`);
+      }
+    }
+  } catch (e) {
+    console.warn('Error updating cabine presence:', e);
+  }
 };
 
 /**

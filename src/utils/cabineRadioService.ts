@@ -393,6 +393,11 @@ class CabineRadioManager {
 
       source.connect(this.analyser);
 
+      // Desabilita tracks inicialmente para garantir que só transmita ao apertar PTT
+      obtainedStream.getAudioTracks().forEach(track => {
+        track.enabled = false;
+      });
+
       // Adiciona tracks ao WebRTC se estiver conectado
       if (this.peerConn) {
         this.mediaStream.getTracks().forEach(track => {
@@ -502,7 +507,7 @@ class CabineRadioManager {
 
     if (this.mediaStream) {
       this.mediaStream.getAudioTracks().forEach(track => {
-        track.enabled = transmitting;
+        track.enabled = transmitting && !this.isMuted;
       });
     }
 
@@ -526,7 +531,8 @@ class CabineRadioManager {
     this.isMuted = !this.isMuted;
     if (this.mediaStream) {
       this.mediaStream.getAudioTracks().forEach(track => {
-        track.enabled = !this.isMuted;
+        // O microfone só deve estar habilitado se NÃO estiver mutado E estiver em modo transmissão (PTT ou Hands-Free)
+        track.enabled = !this.isMuted && this.isTalking;
       });
     }
     return this.isMuted;

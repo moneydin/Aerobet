@@ -47,7 +47,8 @@ import {
   updateCabineBalance, 
   closeCabineSession,
   sendCabineMessage,
-  listenToCabineMessages
+  listenToCabineMessages,
+  updateCabinePresence
 } from './src/utils/cabineService';
 import { cabineRadio } from './src/utils/cabineRadioService';
 import { CabineSession, CabineMessage } from './types';
@@ -2149,6 +2150,18 @@ interface CashoutNotificationItem {
     handleAddNotification("Copiloto Conectado!", "Copiloto Fox-01 assumiu o Slot 2 da cabine! Operação conjunta iniciada com sucesso.", "success");
   };
 
+  // Sincroniza configurações globais do gráfico (fundo compartilhado)
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'gameCanvas'), (snap) => {
+      if (snap.exists()) {
+        const remoteConfig = snap.data() as CanvasBackgroundConfig;
+        setCanvasBgConfig(remoteConfig);
+        saveCanvasBackgroundConfig(remoteConfig);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   // Sincroniza mensagens do chat privado e rádio da cabine ativa
   useEffect(() => {
     if (!activeCabine) {
@@ -2161,18 +2174,41 @@ interface CashoutNotificationItem {
       return;
     }
 
-    const unsubMessages = listenToCabineMessages(activeCabine.id, (msgs) => {
+    const cabineId = activeCabine.id;
+    const role = activeCabine.userRole || 'pilot';
+
+    // Escuta a cabine específica em tempo real (saldo, parceiro entrando, etc)
+    const unsubCabineDoc = onSnapshot(doc(db, 'cabines', cabineId), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as CabineSession;
+        setActiveCabine(prev => prev ? { ...data, userRole: prev.userRole } : data);
+        saveActiveCabineToStorage({ ...data, userRole: role });
+      } else {
+        // Cabine foi excluída ou encerrada
+        setActiveCabine(null);
+        saveActiveCabineToStorage(null);
+        handleAddNotification("Cabine Encerrada", "Esta cabine não está mais disponível ou foi fechada.", "info");
+      }
+    });
+
+    const unsubMessages = listenToCabineMessages(cabineId, (msgs) => {
       setCabineMessages(msgs);
     });
 
-    cabineRadio.initRadio(activeCabine.id, activeCabine.userRole || 'pilot', {
+    cabineRadio.initRadio(cabineId, role, {
       onVolume: (vol) => setRadioVolume(vol),
       onPartnerTalking: (talking) => setIsPartnerTalking(talking)
     });
 
+    // Marca presença online
+    updateCabinePresence(cabineId, role, true);
+
     return () => {
       unsubMessages();
+      unsubCabineDoc();
       cabineRadio.destroy();
+      // Marca saída e tenta cleanup
+      updateCabinePresence(cabineId, role, false);
     };
   }, [activeCabine?.id]);
 
@@ -2304,6 +2340,10 @@ interface CashoutNotificationItem {
       onUpdateCanvasBgConfig={(newConfig) => {
         setCanvasBgConfig(newConfig);
         saveCanvasBackgroundConfig(newConfig);
+        // Salva no banco de dados para todos verem
+        setDoc(doc(db, 'settings', 'gameCanvas'), newConfig).catch(err => {
+          console.warn('Erro ao sincronizar fundo compartilhado:', err);
+        });
       }}
       />;
   
