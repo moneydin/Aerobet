@@ -244,7 +244,7 @@ const AIPredictor: React.FC<AIPredictorProps> = ({ status, history, isSubscribed
       return (
         <button 
             onClick={onOpenUpgrade}
-            className="absolute top-4 left-4 z-40 bg-black/40 backdrop-blur-md rounded-full border border-[#d97d1b]/30 px-3 py-1.5 flex items-center gap-2 shadow-lg group hover:bg-[#d97d1b]/10 transition-colors animate-in fade-in slide-in-from-left-2"
+            className="absolute top-3 left-3 sm:top-4 sm:left-4 z-40 bg-black/60 backdrop-blur-md rounded-full border border-[#d97d1b]/40 px-3 py-1.5 flex items-center gap-2 shadow-lg group hover:bg-[#d97d1b]/10 transition-colors animate-in fade-in slide-in-from-top-2 cursor-pointer"
         >
             <div className="text-[#d97d1b]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -266,10 +266,10 @@ const AIPredictor: React.FC<AIPredictorProps> = ({ status, history, isSubscribed
     <>
         <button 
             onClick={() => setShowDetails(true)}
-            className={`absolute top-4 left-4 z-40 backdrop-blur-xl rounded-full border pl-2 pr-3 py-1.5 flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-left-2 ${
-                isAnalyzing ? 'bg-black/60 border-white/10' :
-                currentSignal.action === 'WAIT' ? 'bg-black/60 border-yellow-500/30' :
-                'bg-black/80 border-[#34b1e2]/50 shadow-[#34b1e2]/20'
+            className={`absolute top-3 left-3 sm:top-4 sm:left-4 z-40 backdrop-blur-xl rounded-full border pl-2 pr-3 py-1.5 flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-top-2 cursor-pointer ${
+                isAnalyzing ? 'bg-black/70 border-white/10' :
+                currentSignal.action === 'WAIT' ? 'bg-black/70 border-yellow-500/40' :
+                'bg-black/85 border-[#34b1e2]/60 shadow-[#34b1e2]/20'
             }`}
         >
             {/* Ícone de Status */}

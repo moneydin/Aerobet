@@ -132,7 +132,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
     const guestUser = {
       uid: `guest-${Math.floor(Math.random() * 1000000)}`,
       displayName: `Convidado_${Math.floor(Math.random() * 8999 + 1000)}`,
-      email: 'guest@aerofla.com',
+      email: 'guest@aerofantasy.com',
       photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest-${Math.floor(Math.random() * 1000)}`
     };
     localStorage.setItem('guest_user', JSON.stringify(guestUser));

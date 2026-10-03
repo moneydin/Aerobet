@@ -1,13 +1,16 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Transaction, Mission, GameEvent, GameStatus, WheelPrize, DepositConfig, EventPrize, AeroFantasyLeagueType, Banner, FreeFlightConfig, ClubeConfig } from '../../types';
 import BannerAdmin from './BannerAdmin';
 import FreeFlightAdmin from './FreeFlightAdmin';
 import ClubeAdmin from './ClubeAdmin';
 import SkinsAdmin from './SkinsAdmin';
+import LandingAdmin from './LandingAdmin';
+import { CanvasBackgroundConfig, CANVAS_BG_PRESETS, processUploadedImage, processUploadedVideo } from '../../utils/canvasBackground';
 
 interface AdminPanelProps {
   onClose: () => void;
+  onPreviewLanding?: () => void;
   // Game Control
   gameStatus: GameStatus;
   currentMultiplier: number;
@@ -51,11 +54,14 @@ interface AdminPanelProps {
   // Free Flights
   freeFlightConfigs: FreeFlightConfig[];
   onUpdateFreeFlightConfigs: (configs: FreeFlightConfig[]) => void;
-  // Clube Aerobet
+  // Clube Aerogame
   clubeConfig: ClubeConfig;
   onUpdateClubeConfig: (config: ClubeConfig) => void;
   // NOVO: Link para o novo admin
   onOpenAeroFantasyAdmin?: () => void;
+  // Canvas Background Config
+  canvasBgConfig?: CanvasBackgroundConfig;
+  onUpdateCanvasBgConfig?: (config: CanvasBackgroundConfig) => void;
 }
 
 const StatCard = ({ title, value, subtext, icon, color = "text-white", trend, onEdit, alert = false, onClick }: any) => (
@@ -121,11 +127,48 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   banners, onUpdateBanners,
   freeFlightConfigs, onUpdateFreeFlightConfigs,
   clubeConfig, onUpdateClubeConfig,
-  onOpenAeroFantasyAdmin
+  onOpenAeroFantasyAdmin,
+  onPreviewLanding,
+  canvasBgConfig,
+  onUpdateCanvasBgConfig
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'live' | 'cms' | 'finance' | 'users' | 'settings' | 'banners' | 'freeflights' | 'clube' | 'skins'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'live' | 'cms' | 'finance' | 'users' | 'settings' | 'banners' | 'freeflights' | 'clube' | 'skins' | 'landing' | 'canvasBg'>('dashboard');
   const [cmsSection, setCmsSection] = useState<'missions' | 'events' | 'wheel'>('missions');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Canvas Background customization state
+  const [localCanvasBg, setLocalCanvasBg] = useState<CanvasBackgroundConfig>(() => {
+    const base = canvasBgConfig || {
+      enabled: false,
+      images: [],
+      videos: [],
+      bgType: 'image' as const,
+      opacity: 0.35,
+      blur: 0,
+      overlayDarkness: 0.4,
+      fit: 'cover' as const
+    };
+    return {
+      ...base,
+      videos: base.videos || [],
+      bgType: base.bgType || 'image'
+    };
+  });
+  const [isUploadingBg, setIsUploadingBg] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const [bgUploadError, setBgUploadError] = useState('');
+
+  // Synchronize localCanvasBg whenever parent canvasBgConfig changes/hydrates
+  useEffect(() => {
+    if (canvasBgConfig) {
+      setLocalCanvasBg({
+        ...canvasBgConfig,
+        videos: canvasBgConfig.videos || [],
+        bgType: canvasBgConfig.bgType || 'image'
+      });
+    }
+  }, [canvasBgConfig]);
   
   // Dashboard & Control State
   const [nextResultInput, setNextResultInput] = useState('');
@@ -175,6 +218,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   }, [cmsSection, missions, events, tournaments]);
 
   // Handlers
+  const handleSaveCanvasBg = () => {
+      if (localCanvasBg.enabled) {
+          const type = localCanvasBg.bgType || 'image';
+          if (type === 'image' && localCanvasBg.images.length === 0) {
+              alert("Por favor, adicione pelo menos uma imagem de fundo antes de ativar!");
+              return;
+          }
+          if (type === 'video' && (!localCanvasBg.videos || localCanvasBg.videos.length === 0)) {
+              alert("Por favor, adicione pelo menos um vídeo de fundo antes de ativar!");
+              return;
+          }
+      }
+      if (onUpdateCanvasBgConfig) {
+          onUpdateCanvasBgConfig(localCanvasBg);
+          alert("Configurações do fundo do gráfico salvas com sucesso!");
+      }
+  };
   const handleSetResult = () => { onSetNextResult(parseFloat(nextResultInput)); alert(`Próximo resultado definido.`); setNextResultInput(''); };
   const handleUpdateHouseBankroll = () => { 
       const val = prompt("Novo valor da Banca da Casa:", houseBankroll.toString());
@@ -302,10 +362,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
              <SidebarItem id="finance" label="Financeiro" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>} />
              <SidebarItem id="users" label="Usuários" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} />
              <SidebarItem id="banners" label="Banners" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>} />
+             <SidebarItem id="landing" label="Landing Page" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>} />
              <SidebarItem id="freeflights" label="Voos Grátis" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} />
-             <SidebarItem id="clube" label="Clube Aerobet" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>} />
+             <SidebarItem id="clube" label="Clube Aerogame" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>} />
              <SidebarItem id="skins" label="Loja e Aeronaves" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>} />
              <SidebarItem id="cms" label="Missões & Eventos" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>} />
+             <SidebarItem id="canvasBg" label="Fundo do Gráfico" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>} />
              <SidebarItem id="settings" label="Configurações Gerais" icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>} />
              
              {/* BOTÃO ESPECIAL AEROFANTASY */}
@@ -498,10 +560,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       </div>
                   )}
 
-                  {/* CLUBE AEROBET TAB */}
+                  {/* CLUBE AEROGAME TAB */}
                   {activeTab === 'clube' && (
                       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                          <SectionHeader title="Gestão do Clube Aerobet" subtitle="Controle as regras do programa de fidelidade e recompensas." />
+                          <SectionHeader title="Gestão do Clube Aerogame" subtitle="Controle as regras do programa de fidelidade e recompensas." />
                           <ClubeAdmin config={clubeConfig} onUpdateConfig={onUpdateClubeConfig} />
                       </div>
                   )}
@@ -511,6 +573,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                           <SectionHeader title="Aeronaves Customizadas" subtitle="Adicione novos modelos no jogo ajustando parâmetros visuais avançados." />
                           <SkinsAdmin />
+                      </div>
+                  )}
+
+                  {/* LANDING TAB */}
+                  {activeTab === 'landing' && (
+                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          <LandingAdmin onPreviewLanding={() => {
+                              onClose();
+                              onPreviewLanding?.();
+                          }} />
                       </div>
                   )}
 
@@ -678,6 +750,533 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                                           </button>
                                       </div>
                                   ))}
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* CANVAS BACKGROUND TAB */}
+                  {activeTab === 'canvasBg' && (
+                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          <SectionHeader 
+                              title="Fundo do Gráfico (Multitela)" 
+                              subtitle="Configure múltiplas imagens ou vídeos para o fundo do gráfico do voo. O sistema alternará aleatoriamente os itens cadastrados para dar dinamismo às rodadas!" 
+                          />
+
+                          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                              {/* Left Columns - Controls & Configuration */}
+                              <div className="xl:col-span-2 space-y-6">
+                                  
+                                  {/* Toggle Activation & Selection of Background Type */}
+                                  <div className="bg-[#1b1c1d] rounded-2xl border border-white/5 p-6 space-y-4 shadow-xl">
+                                      <div className="flex items-center justify-between">
+                                          <div>
+                                              <h3 className="text-sm font-black text-white uppercase tracking-wider">Ativar Personalização de Fundo</h3>
+                                              <p className="text-[11px] text-white/50 mt-1">Habilite ou desabilite o uso de fundos customizados no quadro do gráfico.</p>
+                                          </div>
+                                          <button 
+                                              onClick={() => setLocalCanvasBg(prev => ({ ...prev, enabled: !prev.enabled }))}
+                                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                  localCanvasBg.enabled ? 'bg-[#28a745]' : 'bg-white/10'
+                                              }`}
+                                          >
+                                              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                  localCanvasBg.enabled ? 'translate-x-5' : 'translate-x-0'
+                                              }`} />
+                                          </button>
+                                      </div>
+
+                                      <div className="border-t border-white/5 pt-4">
+                                          <label className="text-[10px] font-black text-white/40 uppercase block mb-2">Selecione o Tipo de Fundo</label>
+                                          <div className="flex gap-2">
+                                              <button
+                                                  onClick={() => setLocalCanvasBg(prev => ({ ...prev, bgType: 'image' }))}
+                                                  className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                                                      (localCanvasBg.bgType || 'image') === 'image'
+                                                          ? 'bg-[#34b1e2] text-black shadow-lg shadow-[#34b1e2]/20'
+                                                          : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'
+                                                  }`}
+                                              >
+                                                  <span>🖼️</span> Imagens Estáticas
+                                              </button>
+                                              <button
+                                                  onClick={() => setLocalCanvasBg(prev => ({ ...prev, bgType: 'video' }))}
+                                                  className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                                                      localCanvasBg.bgType === 'video'
+                                                          ? 'bg-[#34b1e2] text-black shadow-lg shadow-[#34b1e2]/20'
+                                                          : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'
+                                                  }`}
+                                              >
+                                                  <span>🎥</span> Vídeos Dinâmicos
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+
+                                  {/* Dynamic Content Customizer based on background type */}
+                                  {(localCanvasBg.bgType || 'image') === 'video' ? (
+                                      <div className="bg-[#1b1c1d] rounded-2xl border border-white/5 p-6 shadow-xl space-y-6">
+                                          <div>
+                                              <h3 className="text-xs font-black text-white uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                                  <span>🎥</span> Seus Vídeos de Rotação ({(localCanvasBg.videos || []).length})
+                                              </h3>
+                                              <p className="text-[11px] text-white/50">Adicione arquivos de vídeo ou links diretos de vídeo (MP4 ou WebM). O sistema alternará aleatoriamente se houver mais de um.</p>
+                                          </div>
+
+                                          {/* Direct Video URL Input */}
+                                          <div className="bg-black/40 border border-white/5 p-4 rounded-xl space-y-3">
+                                              <label className="text-[9px] font-black uppercase text-white/40 tracking-wider block">Inserir Link Direto de Vídeo (.mp4, .webm, etc.)</label>
+                                              <div className="flex gap-2">
+                                                  <input 
+                                                      type="text" 
+                                                      placeholder="Ex: https://meusite.com/video_background.mp4"
+                                                      value={videoUrlInput}
+                                                      onChange={(e) => setVideoUrlInput(e.target.value)}
+                                                      className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#34b1e2]"
+                                                  />
+                                                  <button
+                                                      onClick={() => {
+                                                          if (!videoUrlInput.trim()) return;
+                                                          setLocalCanvasBg(prev => ({
+                                                              ...prev,
+                                                              videos: [...(prev.videos || []), videoUrlInput.trim()]
+                                                          }));
+                                                          setVideoUrlInput('');
+                                                          alert('Link do vídeo adicionado!');
+                                                      }}
+                                                      className="bg-[#34b1e2] hover:bg-[#2fa0cc] text-black px-4 py-2.5 rounded-xl text-xs font-black uppercase whitespace-nowrap active:scale-95 transition-all cursor-pointer"
+                                                  >
+                                                      + Adicionar Link
+                                                  </button>
+                                              </div>
+                                          </div>
+
+                                          {/* Upload local file */}
+                                          <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-[#34b1e2]/50 transition-colors relative group">
+                                              <input 
+                                                  type="file" 
+                                                  accept="video/mp4,video/webm"
+                                                  onChange={async (e) => {
+                                                      if (e.target.files && e.target.files.length > 0) {
+                                                          setIsUploadingVideo(true);
+                                                          setBgUploadError('');
+                                                          try {
+                                                              const file = e.target.files[0];
+                                                              const base64 = await processUploadedVideo(file);
+                                                              setLocalCanvasBg(prev => ({
+                                                                  ...prev,
+                                                                  videos: [...(prev.videos || []), base64]
+                                                              }));
+                                                              alert('Vídeo local carregado com sucesso!');
+                                                          } catch (err: any) {
+                                                              setBgUploadError(err.message || 'Erro ao processar arquivo de vídeo.');
+                                                          } finally {
+                                                              setIsUploadingVideo(false);
+                                                          }
+                                                      }
+                                                  }}
+                                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                              />
+                                              <div className="flex flex-col items-center justify-center">
+                                                  <div className="w-12 h-12 rounded-full bg-[#34b1e2]/10 flex items-center justify-center text-[#34b1e2] mb-3 group-hover:scale-110 transition-transform">
+                                                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                                                  </div>
+                                                  <p className="text-xs font-bold text-white uppercase">Upload de Vídeo Local</p>
+                                                  <p className="text-[10px] text-white/40 mt-1">Arraste arquivo ou clique para carregar um vídeo MP4/WebM (Até 10MB)</p>
+                                              </div>
+                                          </div>
+
+                                          {isUploadingVideo && (
+                                              <div className="flex items-center justify-center gap-3 py-2 text-xs font-bold text-[#34b1e2] animate-pulse">
+                                                  <div className="w-4 h-4 border-2 border-[#34b1e2] border-t-transparent rounded-full animate-spin" />
+                                                  Carregando e codificando arquivo de vídeo...
+                                              </div>
+                                          )}
+
+                                          {bgUploadError && (
+                                              <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-[10px] text-red-400 font-bold">
+                                                  ⚠️ {bgUploadError}
+                                              </div>
+                                          )}
+
+                                          {/* Videos list */}
+                                          {(!localCanvasBg.videos || localCanvasBg.videos.length === 0) ? (
+                                              <div className="text-center py-8 text-xs text-white/20 italic border border-white/5 rounded-xl bg-black/20">
+                                                  Nenhum vídeo personalizado adicionado. Use os controles acima para enviar um vídeo ou link.
+                                              </div>
+                                          ) : (
+                                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2">
+                                                  {localCanvasBg.videos.map((vid, idx) => (
+                                                      <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-white/10 group bg-black flex flex-col justify-between">
+                                                          {/* Small silent video preview */}
+                                                          <video 
+                                                              src={vid} 
+                                                              muted 
+                                                              loop 
+                                                              playsInline
+                                                              autoPlay
+                                                              className="absolute inset-0 w-full h-full object-cover opacity-80"
+                                                          />
+                                                          
+                                                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
+                                                              <button 
+                                                                  onClick={() => {
+                                                                      setLocalCanvasBg(prev => ({
+                                                                          ...prev,
+                                                                          videos: (prev.videos || []).filter((_, i) => i !== idx)
+                                                                      }));
+                                                                  }}
+                                                                  className="bg-[#e51a31] hover:bg-red-700 text-white p-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 shadow-lg cursor-pointer"
+                                                                  title="Remover Vídeo"
+                                                              >
+                                                                  <span>✕</span> Remover
+                                                              </button>
+                                                          </div>
+                                                          <div className="relative z-10 p-2 bg-gradient-to-t from-black via-black/40 to-transparent flex justify-between items-end h-full">
+                                                              <span className="bg-black/70 px-1.5 py-0.5 rounded text-[8px] font-bold text-white/80">
+                                                                  #{idx + 1}
+                                                              </span>
+                                                              <span className="text-[8px] text-white/60 font-medium truncate max-w-[150px]">
+                                                                  {vid.startsWith('data:') ? 'Arquivo Codificado' : vid}
+                                                              </span>
+                                                          </div>
+                                                      </div>
+                                                  ))}
+                                              </div>
+                                          )}
+                                      </div>
+                                  ) : (
+                                      <div className="space-y-6">
+                                          {/* Image uploader and active list */}
+                                          <div className="bg-[#1b1c1d] rounded-2xl border border-white/5 p-6 shadow-xl">
+                                              <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                  <span>🖼️</span> Suas Imagens de Rotação ({localCanvasBg.images.length})
+                                              </h3>
+
+                                              {/* Upload zone */}
+                                              <div className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-[#34b1e2]/50 transition-colors relative group mb-6">
+                                                  <input 
+                                                      type="file" 
+                                                      multiple 
+                                                      accept="image/*"
+                                                      onChange={async (e) => {
+                                                          if (e.target.files && e.target.files.length > 0) {
+                                                              setIsUploadingBg(true);
+                                                              setBgUploadError('');
+                                                              try {
+                                                                  const files = Array.from(e.target.files) as File[];
+                                                                  const processed: string[] = [];
+                                                                  for (const file of files) {
+                                                                      const base64 = await processUploadedImage(file);
+                                                                      processed.push(base64);
+                                                                  }
+                                                                  setLocalCanvasBg(prev => ({
+                                                                      ...prev,
+                                                                      images: [...prev.images, ...processed]
+                                                                  }));
+                                                              } catch (err: any) {
+                                                                  setBgUploadError(err.message || 'Erro ao processar arquivo(s).');
+                                                              } finally {
+                                                                  setIsUploadingBg(false);
+                                                              }
+                                                          }
+                                                      }}
+                                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                                  />
+                                                  <div className="flex flex-col items-center justify-center">
+                                                      <div className="w-12 h-12 rounded-full bg-[#34b1e2]/10 flex items-center justify-center text-[#34b1e2] mb-3 group-hover:scale-110 transition-transform">
+                                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                                      </div>
+                                                      <p className="text-xs font-bold text-white uppercase">Upload de Imagens</p>
+                                                      <p className="text-[10px] text-white/40 mt-1">Arraste arquivos ou clique para selecionar múltiplos arquivos (PNG, JPG, WEBP)</p>
+                                                  </div>
+                                              </div>
+
+                                              {isUploadingBg && (
+                                                  <div className="flex items-center justify-center gap-3 py-4 text-xs font-bold text-[#34b1e2] animate-pulse">
+                                                      <div className="w-4 h-4 border-2 border-[#34b1e2] border-t-transparent rounded-full animate-spin" />
+                                                      Processando e Otimizando Imagens...
+                                                  </div>
+                                              )}
+
+                                              {bgUploadError && (
+                                                  <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-[10px] text-red-400 font-bold mb-4">
+                                                      ⚠️ {bgUploadError}
+                                                  </div>
+                                              )}
+
+                                              {/* Image List */}
+                                              {localCanvasBg.images.length === 0 ? (
+                                                  <div className="text-center py-8 text-xs text-white/20 italic border border-white/5 rounded-xl bg-black/20">
+                                                      Nenhuma imagem personalizada adicionada. O sistema usará o tema cósmico padrão do jogo.
+                                                  </div>
+                                              ) : (
+                                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto pr-2">
+                                                      {localCanvasBg.images.map((img, idx) => (
+                                                          <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-white/10 group bg-black">
+                                                              <img src={img} alt={`Fundo ${idx + 1}`} className="w-full h-full object-cover" />
+                                                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                                  <button 
+                                                                      onClick={() => {
+                                                                          setLocalCanvasBg(prev => ({
+                                                                              ...prev,
+                                                                              images: prev.images.filter((_, i) => i !== idx)
+                                                                          }));
+                                                                      }}
+                                                                      className="bg-[#e51a31] hover:bg-red-700 text-white p-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 shadow-lg cursor-pointer"
+                                                                      title="Remover Imagem"
+                                                                  >
+                                                                      <span>✕</span> Remover
+                                                                  </button>
+                                                              </div>
+                                                              <span className="absolute bottom-1 left-1 bg-black/70 px-1.5 py-0.5 rounded text-[8px] font-bold text-white/80">
+                                                                  #{idx + 1}
+                                                              </span>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                              )}
+                                          </div>
+
+                                          {/* Quick Presets Section */}
+                                          <div className="bg-[#1b1c1d] rounded-2xl border border-white/5 p-6 shadow-xl">
+                                              <h3 className="text-xs font-black text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                  <span>💡</span> Presets Estéticos para Adicionar
+                                              </h3>
+                                              <p className="text-[10px] text-white/40 mb-4">Clique nos presets abaixo para adicioná-los rapidamente à sua rotação aleatória de fundos do jogo!</p>
+                                              
+                                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                                  {CANVAS_BG_PRESETS.map((preset) => {
+                                                      const isAlreadyAdded = localCanvasBg.images.includes(preset.url);
+                                                      return (
+                                                          <button
+                                                              key={preset.id}
+                                                              disabled={isAlreadyAdded}
+                                                              onClick={() => {
+                                                                  setLocalCanvasBg(prev => ({
+                                                                      ...prev,
+                                                                      images: [...prev.images, preset.url]
+                                                                  }));
+                                                              }}
+                                                              className={`flex flex-col text-left rounded-xl overflow-hidden border transition-all text-xs outline-none ${
+                                                                  isAlreadyAdded 
+                                                                      ? 'border-[#28a745]/30 bg-black/40 opacity-50 cursor-not-allowed' 
+                                                                      : 'border-white/5 bg-black/20 hover:border-[#34b1e2]/50 hover:bg-black/40 active:scale-[0.98]'
+                                                              }`}
+                                                          >
+                                                              <div className="aspect-video w-full overflow-hidden relative">
+                                                                  <img src={preset.preview} alt={preset.name} className="w-full h-full object-cover" />
+                                                                  {isAlreadyAdded && (
+                                                                      <div className="absolute inset-0 bg-[#28a745]/10 flex items-center justify-center">
+                                                                          <span className="bg-[#28a745] text-white font-bold text-[8px] px-1.5 py-0.5 rounded uppercase">Adicionado</span>
+                                                                      </div>
+                                                                  )}
+                                                              </div>
+                                                              <div className="p-2.5">
+                                                                  <p className="font-bold text-white truncate text-[10px]">{preset.name}</p>
+                                                                  <p className="text-[8px] text-white/30 font-black uppercase mt-1">
+                                                                      {isAlreadyAdded ? 'Na lista' : '+ Adicionar'}
+                                                                  </p>
+                                                              </div>
+                                                          </button>
+                                                      );
+                                                  })}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {/* Custom sliders */}
+                                  <div className="bg-[#1b1c1d] rounded-2xl border border-white/5 p-6 shadow-xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      <div>
+                                          <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">Ajustes Visuais</h3>
+                                          
+                                          {/* Opacity */}
+                                          <div className="mb-4">
+                                              <div className="flex justify-between text-xs font-bold text-white mb-1.5">
+                                                  <span>Opacidade do Fundo</span>
+                                                  <span className="text-[#34b1e2]">{Math.round(localCanvasBg.opacity * 100)}%</span>
+                                              </div>
+                                              <input 
+                                                  type="range" 
+                                                  min="0.05" 
+                                                  max="1" 
+                                                  step="0.05" 
+                                                  value={localCanvasBg.opacity} 
+                                                  onChange={(e) => setLocalCanvasBg(prev => ({ ...prev, opacity: parseFloat(e.target.value) }))}
+                                                  className="w-full h-1.5 bg-black rounded-lg appearance-none cursor-pointer accent-[#34b1e2]"
+                                              />
+                                          </div>
+
+                                          {/* Blur */}
+                                          <div className="mb-4">
+                                              <div className="flex justify-between text-xs font-bold text-white mb-1.5">
+                                                  <span>Intensidade de Desfoque (Blur)</span>
+                                                  <span className="text-[#34b1e2]">{localCanvasBg.blur}px</span>
+                                              </div>
+                                              <input 
+                                                  type="range" 
+                                                  min="0" 
+                                                  max="10" 
+                                                  step="1" 
+                                                  value={localCanvasBg.blur} 
+                                                  onChange={(e) => setLocalCanvasBg(prev => ({ ...prev, blur: parseInt(e.target.value) }))}
+                                                  className="w-full h-1.5 bg-black rounded-lg appearance-none cursor-pointer accent-[#34b1e2]"
+                                              />
+                                          </div>
+                                      </div>
+
+                                      <div>
+                                          <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">Ajustes de Contraste</h3>
+
+                                          {/* Overlay darkness */}
+                                          <div className="mb-4">
+                                              <div className="flex justify-between text-xs font-bold text-white mb-1.5">
+                                                  <span>Filtro Escurecedor (Overlay)</span>
+                                                  <span className="text-[#34b1e2]">{Math.round(localCanvasBg.overlayDarkness * 100)}%</span>
+                                              </div>
+                                              <input 
+                                                  type="range" 
+                                                  min="0" 
+                                                  max="0.9" 
+                                                  step="0.05" 
+                                                  value={localCanvasBg.overlayDarkness} 
+                                                  onChange={(e) => setLocalCanvasBg(prev => ({ ...prev, overlayDarkness: parseFloat(e.target.value) }))}
+                                                  className="w-full h-1.5 bg-black rounded-lg appearance-none cursor-pointer accent-[#34b1e2]"
+                                              />
+                                          </div>
+
+                                          {/* Fit Mode */}
+                                          <div className="mb-4">
+                                              <label className="text-[10px] font-black text-white/40 uppercase block mb-1">Enquadramento do Fundo</label>
+                                              <select 
+                                                  value={localCanvasBg.fit} 
+                                                  onChange={e => setLocalCanvasBg(prev => ({ ...prev, fit: e.target.value as any }))}
+                                                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-2 text-xs text-white font-bold outline-none focus:border-[#34b1e2]"
+                                              >
+                                                  <option value="cover">Preencher Quadro (Cover)</option>
+                                                  <option value="contain">Centralizar Inteira (Contain)</option>
+                                              </select>
+                                          </div>
+                                      </div>
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="flex flex-col sm:flex-row gap-4">
+                                      <button 
+                                          onClick={handleSaveCanvasBg}
+                                          className="flex-1 bg-[#28a745] hover:bg-[#218838] text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg shadow-[#28a745]/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                                      >
+                                          💾 Salvar Configurações
+                                      </button>
+                                      <button 
+                                          onClick={() => {
+                                              if (confirm('Tem certeza de que deseja limpar todos os fundos e restaurar o visual cósmico clássico?')) {
+                                                  const restored = {
+                                                      enabled: false,
+                                                      images: [],
+                                                      videos: [],
+                                                      bgType: 'image' as const,
+                                                      opacity: 0.35,
+                                                      blur: 0,
+                                                      overlayDarkness: 0.4,
+                                                      fit: 'cover' as const
+                                                  };
+                                                  setLocalCanvasBg(restored);
+                                                  if (onUpdateCanvasBgConfig) onUpdateCanvasBgConfig(restored);
+                                                  alert('Visual padrão cósmico restaurado com sucesso.');
+                                              }
+                                          }}
+                                          className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white px-6 py-4 rounded-xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all cursor-pointer"
+                                      >
+                                          Restaurar Padrão
+                                      </button>
+                                  </div>
+                              </div>
+
+                              {/* Right Column - Live Preview Panel */}
+                              <div className="space-y-6">
+                                  <div className="bg-[#1b1c1d] rounded-2xl border border-white/5 p-6 shadow-xl sticky top-6">
+                                      <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                                          <span>👁️</span> Prévia em Tempo Real
+                                      </h3>
+
+                                      {/* Mock Flight Graph Frame */}
+                                      <div className="relative aspect-video w-full bg-[#050505] rounded-xl overflow-hidden border border-white/10 shadow-inner flex items-center justify-center">
+                                          
+                                          {/* Simulated Custom Background Images Rotation (cycles local images if any) */}
+                                          {localCanvasBg.enabled && localCanvasBg.images.length > 0 ? (
+                                              <div className="absolute inset-0 z-0">
+                                                  <img 
+                                                      src={localCanvasBg.images[0]} 
+                                                      alt="Preview Bg" 
+                                                      className="w-full h-full"
+                                                      style={{
+                                                          objectFit: localCanvasBg.fit,
+                                                          opacity: localCanvasBg.opacity,
+                                                          filter: `blur(${localCanvasBg.blur}px)`
+                                                      }}
+                                                  />
+                                                  {/* Dark Contrast Tint overlay */}
+                                                  <div 
+                                                      className="absolute inset-0 bg-black" 
+                                                      style={{ opacity: localCanvasBg.overlayDarkness }}
+                                                  />
+                                              </div>
+                                          ) : (
+                                              // Fallback classic background gradient
+                                              <div className="absolute inset-0 bg-gradient-to-tr from-[#020204] via-[#050609] to-[#010103] opacity-100" />
+                                          )}
+
+                                          {/* Mock Grid Lines */}
+                                          <div className="absolute inset-0 opacity-15 pointer-events-none" 
+                                              style={{ 
+                                                  backgroundImage: `linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)`, 
+                                                  backgroundSize: '40px 40px' 
+                                              }} 
+                                          />
+
+                                          {/* Mock Curve Trail */}
+                                          <svg className="absolute inset-0 w-full h-full z-10 pointer-events-none">
+                                              <path 
+                                                  d="M 20 150 C 100 150, 160 140, 210 50" 
+                                                  fill="none" 
+                                                  stroke="#e51a31" 
+                                                  strokeWidth="3.5" 
+                                                  strokeLinecap="round" 
+                                              />
+                                          </svg>
+
+                                          {/* Mock Plane Icon */}
+                                          <div className="absolute z-20" style={{ left: '202px', top: '35px', transform: 'rotate(-25deg)' }}>
+                                              <span className="text-xl">✈️</span>
+                                          </div>
+
+                                          {/* Mock Multiplier text */}
+                                          <div className="absolute inset-0 flex flex-col items-center justify-center z-30 pointer-events-none">
+                                              <span className="text-3xl font-black italic tracking-tighter text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                                                  2.85x
+                                              </span>
+                                              <span className="text-[7px] font-black uppercase text-white/50 tracking-widest mt-1 drop-shadow">
+                                                  Voo em Andamento
+                                              </span>
+                                          </div>
+
+                                          {/* Badge showing "Customizado" */}
+                                          <div className="absolute top-3 left-3 bg-[#34b1e2]/25 border border-[#34b1e2]/40 text-[#34b1e2] px-2 py-0.5 rounded text-[8px] font-black uppercase z-40">
+                                              {localCanvasBg.enabled ? 'Fundo Ativo' : 'Fundo Padrão'}
+                                          </div>
+                                      </div>
+
+                                      <div className="bg-black/30 p-4 rounded-xl border border-white/5 text-[10px] text-white/50 leading-relaxed mt-4 space-y-2">
+                                          <p>
+                                              <strong className="text-white">Dica de Legibilidade:</strong> Certifique-se de que a opacidade esteja ajustada de modo que o multiplicador central continue extremamente legível contra qualquer fundo.
+                                          </p>
+                                          <p>
+                                              Usar um valor de <strong className="text-[#34b1e2]">Filtro Escurecedor (Overlay)</strong> maior que 30% ajuda a manter o contraste excelente para os apostadores.
+                                          </p>
+                                      </div>
+                                  </div>
                               </div>
                           </div>
                       </div>

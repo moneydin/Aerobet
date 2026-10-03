@@ -56,7 +56,7 @@ async function startServer() {
   let rtp = 97;
   let crashPoint = 1.0;
   let startTime = 0;
-  let currentSeeds = { server: "", client: "AERObet-Client-Seed-1", round: 0, hash: "" };
+  let currentSeeds = { server: "", client: "AEROgame-Client-Seed-1", round: 0, hash: "" };
   let nextServerSeed = "";
   let nextRoundServerSeedHash = "";
   let forcedCrashPoint: number | null = null;
@@ -111,7 +111,7 @@ async function startServer() {
     }
 
     const serverSeed = nextServerSeed;
-    const clientSeed = "AERObet-JS-Demo";
+    const clientSeed = "AEROgame-JS-Demo";
     const roundId = Date.now().toString();
     const combined = `${serverSeed}-${clientSeed}-${roundId}`;
     const hash = sha256(combined);
@@ -176,7 +176,7 @@ async function startServer() {
           timestamp: Date.now()
         }).catch(err => console.error("Error saving round to Firestore:", err));
 
-        setTimeout(resetGame, 3000);
+        setTimeout(resetGame, 3800);
       } else {
         multiplier = nextMultiplier;
         // Emit tick state updates every 100ms instead of 50ms to dramatically improve performance and prevent rendering stalls

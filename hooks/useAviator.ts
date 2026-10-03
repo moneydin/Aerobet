@@ -8,6 +8,7 @@ export const useAviator = (rtp: number = 97) => {
   const [multiplier, setMultiplier] = useState(1.00);
   const [countdown, setCountdown] = useState(5000);
   const [nextRoundServerSeedHash, setNextRoundServerSeedHash] = useState('');
+  const [history, setHistory] = useState<GameHistory[]>([]);
   
   const socketRef = useRef<Socket | null>(null);
   
@@ -28,6 +29,9 @@ export const useAviator = (rtp: number = 97) => {
       setMultiplier(data.multiplier);
       setCountdown(data.countdown);
       setNextRoundServerSeedHash(data.nextRoundServerSeedHash);
+      if (data.history) {
+        setHistory(data.history);
+      }
 
       if (data.status === GameStatus.FLYING && data.multiplier > 1.0) {
         // Alinhamento matemático perfeito usando o inverso da fórmula exponencial
@@ -77,6 +81,9 @@ export const useAviator = (rtp: number = 97) => {
       setMultiplier(data.multiplier);
       flightStartTimeRef.current = null;
       countdownTargetRef.current = null;
+      if (data.history) {
+        setHistory(data.history);
+      }
     });
 
     return () => {
@@ -158,6 +165,7 @@ export const useAviator = (rtp: number = 97) => {
     multiplier, 
     countdown, 
     nextRoundServerSeedHash,
+    history,
     setNextRoundResult, 
     forceCrashNow,
     updateRtp,

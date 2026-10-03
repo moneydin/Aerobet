@@ -43,7 +43,7 @@ const ClubeModal: React.FC<ClubeModalProps> = ({ onClose, stats, config, onJoin 
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter leading-none mb-2">Clube <span className="text-black">AERObet</span></h2>
+            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter leading-none mb-2">Clube <span className="text-black">AEROgame</span></h2>
             <p className="text-white/80 text-xs font-bold uppercase tracking-widest">Sua fidelidade recompensada com voos grátis</p>
           </div>
         </div>
@@ -73,7 +73,7 @@ const ClubeModal: React.FC<ClubeModalProps> = ({ onClose, stats, config, onJoin 
               >
                 Participar do Clube
               </button>
-              <p className="text-[10px] text-white/30 uppercase font-bold">Ao participar, você concorda com os termos do Clube AERObet.</p>
+              <p className="text-[10px] text-white/30 uppercase font-bold">Ao participar, você concorda com os termos do Clube AEROgame.</p>
             </div>
           ) : (
             <div className="space-y-8">

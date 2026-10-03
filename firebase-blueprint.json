@@ -60,6 +60,38 @@
         "timestamp": { "type": "number" }
       },
       "required": ["multiplier", "roundId", "timestamp"]
+    },
+    "Room": {
+      "title": "Competition Room",
+      "description": "Stores AeroFantasy rooms and tournaments",
+      "type": "object",
+      "properties": {
+        "roomNumber": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "currentPlayers": { "type": "number" },
+        "maxPlayers": { "type": "number" },
+        "totalFlights": { "type": "number" },
+        "entryFee": { "type": "number" },
+        "prizePool": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["name", "category", "maxPlayers", "totalFlights"]
+    },
+    "Cabine": {
+      "title": "Cabine Session",
+      "description": "Stores co-op pilot and copilot shared bankroll sessions",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "password": { "type": "string" },
+        "totalBankroll": { "type": "number" },
+        "currentBalance": { "type": "number" },
+        "pilotName": { "type": "string" },
+        "copilotName": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["name", "totalBankroll", "currentBalance", "pilotName", "status"]
     }
   },
   "firestore": {
@@ -82,6 +114,18 @@
     "/settings/{settingId}": {
       "schema": "object",
       "description": "System settings like RTP"
+    },
+    "/custom_skins/{skinId}": {
+      "schema": "object",
+      "description": "Custom user skins"
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "AeroFantasy Competition Rooms"
+    },
+    "/cabines/{cabineId}": {
+      "schema": "Cabine",
+      "description": "Co-op shared bankroll cabine sessions"
     }
   }
 }

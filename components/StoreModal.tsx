@@ -573,7 +573,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
       // Show success
       setIsProcessingCheckout(false);
       setCheckoutStep('done');
-      handleAddNotification('Compra Aprovada!', 'E-commerce do AeroFLA concluiu seu pedido com sucesso! Seus itens foram entregues.', 'success');
+      handleAddNotification('Compra Aprovada!', 'E-commerce do Aerofantasy concluiu seu pedido com sucesso! Seus itens foram entregues.', 'success');
     }, 2500);
   };
 
@@ -613,7 +613,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                 <span className="text-[9px] font-bold text-[#e51a31] uppercase tracking-widest leading-none">LOJA ORIGINAL</span>
               </div>
               <h2 className="text-xl md:text-2xl font-black italic tracking-tighter leading-none text-white">
-                AEROFLA <span className="text-[#e51a31] font-extrabold text-lg">E-COMMERCE</span>
+                AEROFANTASY <span className="text-[#e51a31] font-extrabold text-lg">E-COMMERCE</span>
               </h2>
             </div>
           </div>
@@ -934,7 +934,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                           {/* Rich background details */}
                           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:10px_10px] opacity-40" />
                           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/80 to-transparent z-10" />
-                          <div className="absolute top-2 left-3 text-[7px] font-mono text-white/15 uppercase tracking-[0.2em] select-none pointer-events-none">Série Aerofla Pro</div>
+                          <div className="absolute top-2 left-3 text-[7px] font-mono text-white/15 uppercase tracking-[0.2em] select-none pointer-events-none">Série Aerofantasy Pro</div>
                           
                           <div className="w-full h-full flex items-center justify-center relative p-2 overflow-hidden bg-transparent">
                             {/* Massive background glow */}
@@ -945,7 +945,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                               alt={skin.name}
                               referrerPolicy="no-referrer"
                               style={{ transform: (skin as any).flipX ? 'scaleX(-1)' : 'none' }}
-                              className={`w-40 h-40 object-contain mix-blend-screen filter drop-shadow-[0_12px_24px_rgba(0,0,0,1)] group-hover:scale-125 transition-transform duration-500 select-none pointer-events-none z-20 ${
+                              className={`w-40 h-40 object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.9)] group-hover:scale-125 transition-transform duration-500 select-none pointer-events-none z-20 ${
                                 isOwned ? '' : 'grayscale contrast-125 brightness-40'
                               }`}
                             />
@@ -1049,7 +1049,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                                   alt={p.name}
                                   referrerPolicy="no-referrer"
                                   style={{ transform: (p as any).flipX ? 'scaleX(-1)' : 'none' }}
-                                  className="w-44 h-44 object-contain mix-blend-screen filter drop-shadow-[0_12px_24px_rgba(0,0,0,1)] group-hover:scale-125 transition-transform duration-500 select-none pointer-events-none z-20"
+                                  className="w-44 h-44 object-contain filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.9)] group-hover:scale-125 transition-transform duration-500 select-none pointer-events-none z-20"
                                 />
                               </div>
                             ) : p.category === 'flight' ? (
@@ -1253,7 +1253,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
 
         {/* COMPACT FOOTER MARGIN WARNING */}
         <div className="p-4 bg-black/60 border-t border-white/5 text-center text-[9px] text-white/30 uppercase tracking-widest relative z-10 shrink-0 select-none">
-          MERCADO AEROFLA • GARANTIA DE TRANSPARÊNCIA E DECOLARES PROTEGIDAS • ATIVAÇÃO DIRETA DO SALDO REAL E AEROCOIN.
+          MERCADO AEROFANTASY • GARANTIA DE TRANSPARÊNCIA E DECOLARES PROTEGIDAS • ATIVAÇÃO DIRETA DO SALDO REAL E AEROCOIN.
         </div>
 
 
@@ -1459,7 +1459,7 @@ const StoreModal: React.FC<StoreModalProps> = ({
                       />
                     </div>
                     
-                    <span className="text-[8px] text-white/30 tracking-widest uppercase font-mono">Selo de Proteção Banco AeroFLA</span>
+                    <span className="text-[8px] text-white/30 tracking-widest uppercase font-mono">Selo de Proteção Banco Aerofantasy</span>
                   </div>
                 )}
 

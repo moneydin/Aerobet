@@ -13,7 +13,7 @@ interface WalletModalProps {
 }
 
 // Fallback constant se não for passado via props
-const DEFAULT_PIX_KEY = "00020126580014br.gov.bcb.pix013625503d0e-c00c-4f88-8ce7-f8d0653545d852040000530398654040.015802BR5922AERObetPagamentos6011RioDeJaneiro62290525WPY2d48fb50102140d493d86c63049F86";
+const DEFAULT_PIX_KEY = "00020126580014br.gov.bcb.pix013625503d0e-c00c-4f88-8ce7-f8d0653545d852040000530398654040.015802BR5922AEROgamePagamentos6011RioDeJaneiro62290525WPY2d48fb50102140d493d86c63049F86";
 const DEPOSIT_AMOUNTS = [20, 50, 100, 200, 500, 1000];
 const BANKS = ["Nubank", "Inter", "Itaú", "Bradesco", "Banco do Brasil", "Caixa", "Santander", "C6 Bank", "PicPay", "Original"];
 

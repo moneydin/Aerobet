@@ -314,7 +314,7 @@ const HangarView: React.FC<HangarViewProps> = ({
                 src={((currentSkinItem as any).coverImageBase64 || getCustomSkinImage(activeSkin)) ? ((currentSkinItem as any).coverImageBase64 || getCustomSkinImage(activeSkin)) : `/images/skin_${activeSkin}.png`}
                 alt={currentSkinItem.name}
                 referrerPolicy="no-referrer"
-                className="w-40 h-40 md:w-52 md:h-52 object-contain mix-blend-screen filter drop-shadow-[0_15px_30px_rgba(0,0,0,1)] select-none pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500"
+                className="w-40 h-40 md:w-52 md:h-52 object-contain filter drop-shadow-[0_15px_30px_rgba(0,0,0,0.9)] select-none pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500"
               />
             </motion.div>
 
@@ -445,7 +445,7 @@ const HangarView: React.FC<HangarViewProps> = ({
                       src={((skin as any).imageBase64 || getCustomSkinImage(skin.id)) ? ((skin as any).imageBase64 || getCustomSkinImage(skin.id)) : `/images/skin_${skin.id}.png`}
                       alt={skin.name}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-contain mix-blend-screen drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] transform group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 select-none pointer-events-none"
+                      className="w-full h-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] transform group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 select-none pointer-events-none"
                     />
                   </div>
 

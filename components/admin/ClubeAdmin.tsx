@@ -11,7 +11,7 @@ const ClubeAdmin: React.FC<ClubeAdminProps> = ({ config, onUpdateConfig }) => {
 
   const handleSave = () => {
     onUpdateConfig(formData);
-    alert('Configurações do Clube Aerobet salvas com sucesso!');
+    alert('Configurações do Clube Aerogame salvas com sucesso!');
   };
 
   return (
@@ -100,7 +100,7 @@ const ClubeAdmin: React.FC<ClubeAdminProps> = ({ config, onUpdateConfig }) => {
         <ul className="space-y-3">
           <li className="flex gap-3 text-xs text-white/50">
             <div className="w-1.5 h-1.5 rounded-full bg-[#34b1e2] mt-1 shrink-0" />
-            <span>O Clube Aerobet é uma ferramenta de retenção. Metas muito altas podem desmotivar jogadores casuais.</span>
+            <span>O Clube Aerogame é uma ferramenta de retenção. Metas muito altas podem desmotivar jogadores casuais.</span>
           </li>
           <li className="flex gap-3 text-xs text-white/50">
             <div className="w-1.5 h-1.5 rounded-full bg-[#34b1e2] mt-1 shrink-0" />

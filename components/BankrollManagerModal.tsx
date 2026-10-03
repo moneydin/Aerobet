@@ -279,7 +279,7 @@ const BankrollManagerModal: React.FC<BankrollManagerModalProps> = ({
                      </h2>
                      
                      <p className="text-xs text-white/60 mt-4 leading-relaxed font-medium">
-                         AERObet Elite: O sistema que analisa o gráfico e gerencia sua banca automaticamente com precisão cirúrgica.
+                         AEROgame Elite: O sistema que analisa o gráfico e gerencia sua banca automaticamente com precisão cirúrgica.
                      </p>
 
                      <div className="space-y-4 mt-8">

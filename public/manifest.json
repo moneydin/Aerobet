@@ -1,7 +1,7 @@
 {
-  "name": "AeroFLA - Jogue Agora",
-  "short_name": "AeroFLA",
-  "description": "Plataforma Premium de Crash Game AeroFLA",
+  "name": "Aerofantasy - Jogue Agora",
+  "short_name": "Aerofantasy",
+  "description": "Plataforma Premium de Jogos e Ligas Aerofantasy",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

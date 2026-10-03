@@ -6,6 +6,7 @@ interface SideMenuProps {
   onClose: () => void;
   onOpenProfile: () => void;
   onOpenWallet: () => void;
+  onOpenStore?: () => void;
   onOpenMissions: () => void;
   onOpenEvents: () => void;
   onOpenTournaments: () => void;
@@ -25,6 +26,13 @@ interface SideMenuProps {
   onInstallPWA?: () => void;
   showInstallButton?: boolean;
   isAdminUser: boolean;
+  onOpenPortal?: () => void;
+  onLogout?: () => void;
+  onSwitchMode?: (targetMode?: string) => void;
+  onSwitchProfile?: () => void;
+  currentMode?: 'aerogame' | 'aerobet' | 'aerofantasy' | 'store' | 'hangar';
+  activeEventId?: string | null;
+  onOpenCabine?: () => void;
 }
 
 const MenuItem = ({ icon, label, onClick, highlight = false, badge = null, badgeColor = 'bg-[#e51a31]' }: any) => (
@@ -54,6 +62,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
   onClose, 
   onOpenProfile, 
   onOpenWallet,
+  onOpenStore,
   onOpenMissions,
   onOpenEvents,
   onOpenTournaments,
@@ -72,8 +81,17 @@ const SideMenu: React.FC<SideMenuProps> = ({
   onToggleMute,
   onInstallPWA,
   showInstallButton = false,
-  isAdminUser
+  isAdminUser,
+  onOpenPortal,
+  onLogout,
+  onSwitchMode,
+  onSwitchProfile,
+  currentMode = 'aerogame',
+  activeEventId,
+  onOpenCabine
 }) => {
+  const isAeroFantasyActive = activeEventId || currentMode === 'aerofantasy';
+
   return (
     <>
       {/* Backdrop */}
@@ -90,7 +108,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
            <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#e51a31] rounded-lg flex items-center justify-center font-black italic shadow-[0_0_10px_rgba(229,26,49,0.5)]">A</div>
-            <span className="font-black italic tracking-tighter text-xl text-white">AERO<span className="text-[#e51a31]">bet</span></span>
+            <span className="font-black italic tracking-tighter text-xl text-white">AERO<span className="text-[#e51a31]">game</span></span>
           </div>
           <button onClick={onClose} className="p-2 text-white/40 hover:text-white transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -100,12 +118,60 @@ const SideMenu: React.FC<SideMenuProps> = ({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 no-scrollbar">
           
+          {/* --- ALTERNAR MODO DIRETO --- */}
+          {isAeroFantasyActive ? (
+            <MenuItem 
+              highlight
+              label="AeroGame (Crash Clássico)" 
+              onClick={() => { if (onSwitchMode) onSwitchMode('aerogame'); onClose(); }}
+              badge="DINHEIRO REAL"
+              badgeColor="bg-gradient-to-r from-red-600 to-[#e51a31]"
+              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} 
+            />
+          ) : (
+            <MenuItem 
+              label="AeroFantasy (Salas & Ligas)" 
+              onClick={() => { if (onSwitchMode) onSwitchMode('aerofantasy'); onClose(); }}
+              badge="TORNEIOS"
+              badgeColor="bg-gradient-to-r from-blue-600 to-cyan-500"
+              icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34b1e2" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="6"/></svg>} 
+            />
+          )}
+
+          {/* --- PORTAL DE MODOS --- */}
+          <MenuItem 
+            label="Portal de Modos" 
+            onClick={() => { if (onOpenPortal) onOpenPortal(); onClose(); }}
+            badge="PORTAL"
+            badgeColor="bg-gradient-to-r from-red-600 to-sky-500"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>} 
+          />
+
+          {/* --- MODO CABINE (CO-OP) --- */}
+          <MenuItem 
+            label="Modo Cabine (Co-Op)" 
+            onClick={() => { if (onOpenCabine) onOpenCabine(); onClose(); }}
+            badge="PILOTO & COPILOTO"
+            badgeColor="bg-gradient-to-r from-cyan-600 to-blue-500"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} 
+          />
+
+          <div className="h-px bg-white/5 my-1" />
+
           {/* --- BLOCO 1: FINANCEIRO & CORE (PRIORIDADE MÁXIMA) --- */}
           <MenuItem 
             highlight
             label="Carteira" 
             onClick={() => { onOpenWallet(); onClose(); }}
             icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>} 
+          />
+
+          <MenuItem 
+            label="Loja de Skins & Itens" 
+            onClick={() => { if (onOpenStore) onOpenStore(); onClose(); }}
+            badge="SKINS"
+            badgeColor="bg-gradient-to-r from-amber-500 to-yellow-600"
+            icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>} 
           />
           
           <MenuItem 
@@ -126,7 +192,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
 
           {/* --- BLOCO 2: ENGAJAMENTO DIÁRIO (RETENÇÃO) --- */}
           <MenuItem 
-            label="Clube Aerobet" 
+            label="Clube Aerogame" 
             onClick={() => { onOpenClube(); onClose(); }}
             badge="NOVO"
             badgeColor="bg-[#34b1e2]"
@@ -230,7 +296,7 @@ const SideMenu: React.FC<SideMenuProps> = ({
 
           {showInstallButton && (
             <MenuItem 
-              label="Instalar AeroFLA"
+              label="Instalar Aerofantasy"
               onClick={() => { if (onInstallPWA) onInstallPWA(); onClose(); }}
               badge="INSTALAR"
               badgeColor="bg-gradient-to-r from-[#e51a31] to-red-600 animate-pulse border border-red-500"
@@ -274,11 +340,32 @@ const SideMenu: React.FC<SideMenuProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/5 shrink-0 bg-[#141516] pb-8 md:pb-4">
-             <div className="flex justify-between text-[10px] text-white/30 uppercase font-bold tracking-widest">
+        {/* Footer with Account Actions */}
+        <div className="p-4 border-t border-white/5 shrink-0 bg-[#141516] pb-8 md:pb-4 space-y-3">
+             <div className="grid grid-cols-2 gap-2">
+                 {(onSwitchMode || onSwitchProfile) && (
+                     <button
+                         onClick={() => { if (onSwitchMode) onSwitchMode(); else if (onSwitchProfile) onSwitchProfile(); onClose(); }}
+                         className="px-2 py-2 bg-[#34b1e2]/20 hover:bg-[#34b1e2]/30 text-sky-300 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 border border-[#34b1e2]/30 transition-colors cursor-pointer"
+                     >
+                         <span>🎮</span>
+                         <span>Trocar Modo</span>
+                     </button>
+                 )}
+                 {onLogout && (
+                     <button
+                         onClick={() => { onLogout(); onClose(); }}
+                         className="px-2 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 border border-red-500/20 transition-colors cursor-pointer"
+                     >
+                         <span>🚪</span>
+                         <span>Sair</span>
+                     </button>
+                 )}
+             </div>
+
+             <div className="flex justify-between text-[10px] text-white/30 uppercase font-bold tracking-widest pt-1">
                  <span>v2.5.0</span>
-                 <span>AERObet Inc.</span>
+                 <span>AEROgame Inc.</span>
              </div>
         </div>
       </div>

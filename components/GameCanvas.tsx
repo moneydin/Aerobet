@@ -5,6 +5,7 @@ import AIPredictor from './AIPredictor';
 import BankrollStatus from './BankrollStatus';
 import { getCustomSkinImage, getCustomSkins, useCustomSkins } from '../src/utils/customSkins';
 import { WAIT_TIME } from '../constants';
+import { CanvasBackgroundConfig } from '../utils/canvasBackground';
 
 interface GameCanvasProps {
   status: GameStatus;
@@ -22,7 +23,115 @@ interface GameCanvasProps {
   userStats?: UserStats;
   trackedMission?: Mission;
   activeSkin?: string;
+  canvasBgConfig?: CanvasBackgroundConfig;
+  activeCanvasBgImage?: string;
+  activeCanvasBgVideo?: string;
 }
+
+const SeamlessCanvasBackground: React.FC<{
+  config?: CanvasBackgroundConfig;
+  activeImage?: string;
+  activeVideo?: string;
+}> = ({ config, activeImage, activeVideo }) => {
+  const targetType = config?.bgType || 'image';
+  const targetSrc = targetType === 'video' ? (activeVideo || '') : (activeImage || '');
+
+  const [currentMedia, setCurrentMedia] = useState<{ type: 'video' | 'image'; src: string }>({
+    type: targetType,
+    src: targetSrc
+  });
+  const [prevMedia, setPrevMedia] = useState<{ type: 'video' | 'image'; src: string } | null>(null);
+  const [isCrossfading, setIsCrossfading] = useState(false);
+
+  useEffect(() => {
+    if (targetSrc && targetSrc !== currentMedia.src) {
+      setPrevMedia(currentMedia);
+      setCurrentMedia({ type: targetType, src: targetSrc });
+      setIsCrossfading(true);
+      const timer = setTimeout(() => {
+        setIsCrossfading(false);
+        setPrevMedia(null);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [targetSrc, targetType]);
+
+  if (!config?.enabled || (!currentMedia.src && !prevMedia?.src)) return null;
+
+  return (
+    <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+      {/* Previous Media Layer (keeps old background visible while switching, avoiding black flash) */}
+      {prevMedia && prevMedia.src && isCrossfading && (
+        <div className="absolute inset-0 z-0 opacity-100 transition-opacity duration-700">
+          {prevMedia.type === 'video' ? (
+            <video
+              src={prevMedia.src}
+              muted
+              loop
+              playsInline
+              autoPlay
+              className="w-full h-full object-cover"
+              style={{
+                objectFit: config.fit || 'cover',
+                opacity: config.opacity,
+                filter: `blur(${config.blur || 0}px)`
+              }}
+            />
+          ) : (
+            <img
+              src={prevMedia.src}
+              alt=""
+              className="w-full h-full object-cover"
+              style={{
+                objectFit: config.fit || 'cover',
+                opacity: config.opacity,
+                filter: `blur(${config.blur || 0}px)`
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Current Media Layer */}
+      {currentMedia.src && (
+        <div className={`absolute inset-0 z-10 transition-opacity duration-700 ${isCrossfading ? 'animate-in fade-in duration-500' : 'opacity-100'}`}>
+          {currentMedia.type === 'video' ? (
+            <video
+              src={currentMedia.src}
+              muted
+              loop
+              playsInline
+              autoPlay
+              className="w-full h-full object-cover"
+              style={{
+                objectFit: config.fit || 'cover',
+                opacity: config.opacity,
+                filter: `blur(${config.blur || 0}px)`
+              }}
+            />
+          ) : (
+            <img
+              src={currentMedia.src}
+              alt=""
+              className="w-full h-full object-cover"
+              style={{
+                objectFit: config.fit || 'cover',
+                opacity: config.opacity,
+                filter: `blur(${config.blur || 0}px)`
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Contrast-enhancing Darkness Overlay */}
+      <div 
+        className="absolute inset-0 z-20 bg-black transition-opacity duration-500 pointer-events-none" 
+        style={{ opacity: config.overlayDarkness }}
+      />
+    </div>
+  );
+};
 
 const MissionHUD: React.FC<{ mission: Mission }> = ({ mission }) => {
     const progress = Math.min(100, (mission.current / mission.target) * 100);
@@ -297,6 +406,31 @@ const SKIN_COLORS = {
   }
 };
 
+// Função única e autoritativa para cálculo e formatação de altitude diretamente ligada ao multiplicador
+export const getAltitudeFromMultiplier = (mult: number, isWaiting: boolean) => {
+  if (isWaiting) {
+    return { meters: 0, text: '0 m', level: 'SOLO', barPct: 4, rate: 'PISTA 09L', validMult: 1.00 };
+  }
+  // Garante que a altitude seja exatamente baseada no multiplicador com precisão de 2 casas decimais
+  const validMult = Math.max(1.00, parseFloat(mult.toFixed(2)));
+  const meters = Math.round(validMult * 1000);
+  const text = meters >= 100000 
+    ? `${(meters / 1000).toFixed(1).replace('.', ',')} km` 
+    : `${meters.toLocaleString('pt-BR')} m`;
+  
+  let level = 'DECOLAGEM';
+  if (meters >= 85000) level = 'ÓRBITA SUBESPACIAL';
+  else if (meters >= 25000) level = 'MESOSFERA HIPERSÔNICA';
+  else if (meters >= 10000) level = 'ESTRATOSFERA';
+  else if (meters >= 1500) level = 'CRUZEIRO SUBSÔNICO';
+
+  const barPct = Math.min(100, Math.max(4, (Math.log10(validMult) / Math.log10(100)) * 100));
+  const climbRate = Math.round(120 + Math.log10(Math.max(1.05, validMult)) * 480);
+  const rate = `▲ +${climbRate} m/s`;
+
+  return { meters, text, level, barPct, rate, validMult };
+};
+
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
     status, 
     multiplier, 
@@ -307,7 +441,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     onOpenUpgrade = () => {},
     userStats,
     trackedMission,
-    activeSkin = 'aerobrasil'
+    activeSkin = 'aerobrasil',
+    canvasBgConfig,
+    activeCanvasBgImage = '',
+    activeCanvasBgVideo = ''
 }) => {
   const customSkins = useCustomSkins();
 
@@ -365,18 +502,67 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const customImageRef = useRef<SVGImageElement>(null);
   const curvePathRef = useRef<SVGPathElement>(null);
   const areaPathRef = useRef<SVGPathElement>(null);
+  const shockwaveRef = useRef<SVGCircleElement>(null);
+  
+  // Refs para Altitude e Telemetria em Tempo Real (60/120 FPS)
+  const altitudeTextRef = useRef<HTMLSpanElement>(null);
+  const altitudeLevelRef = useRef<HTMLSpanElement>(null);
+  const altitudeRateRef = useRef<HTMLSpanElement>(null);
+  const altitudeBarRef = useRef<HTMLDivElement>(null);
+  const altitudePulseRef = useRef<HTMLSpanElement>(null);
+
+  // Armazena com precisão a altitude, nível e taxa reais durante o voo
+  const lastRealAltitudeRef = useRef<number>(0);
+  const lastRealLevelRef = useRef<string>('SOLO');
+  const lastRealRateRef = useRef<string>('PISTA 09L');
+  const lastRealBarPctRef = useRef<number>(4);
+
+  // Refs para Tripulação em Tempo Real (Contagem de Pessoas Reais na Rodada)
+  const statsRef = useRef(stats);
+  const lockedRoundCrewRef = useRef<number>(0);
+  const isCrewLockedRef = useRef<boolean>(false);
+  const crewTextRef = useRef<HTMLSpanElement>(null);
+  const crewWinnersTextRef = useRef<HTMLSpanElement>(null);
+  const crewWinnersContainerRef = useRef<HTMLDivElement>(null);
+  const crewStatusLabelRef = useRef<HTMLSpanElement>(null);
+  const crewPulseRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    statsRef.current = stats;
+    const currentRealCount = stats?.count || 0;
+    const currentWinners = stats?.winnersCount || 0;
+
+    if (status === GameStatus.WAITING) {
+      lockedRoundCrewRef.current = currentRealCount;
+      if (crewTextRef.current) crewTextRef.current.textContent = String(currentRealCount);
+      if (crewStatusLabelRef.current) {
+        crewStatusLabelRef.current.textContent = currentRealCount > 0 ? 'EMBARCANDO...' : 'EMBARQUE ABERTO';
+      }
+    } else if (status === GameStatus.FLYING) {
+      const totalInRound = Math.max(lockedRoundCrewRef.current, currentRealCount);
+      lockedRoundCrewRef.current = totalInRound;
+      const remaining = Math.max(0, totalInRound - currentWinners);
+      if (crewTextRef.current) crewTextRef.current.textContent = String(remaining);
+      if (crewWinnersTextRef.current) crewWinnersTextRef.current.textContent = String(currentWinners);
+      if (crewWinnersContainerRef.current) crewWinnersContainerRef.current.style.display = currentWinners > 0 ? 'flex' : 'none';
+    }
+  }, [stats, status]);
   
   const requestRef = useRef<number>(null);
   const offsetRef = useRef({ x: 0, y: 0 });
   const prevStatusRef = useRef<GameStatus>(status);
   const crashStartTimeRef = useRef<number | null>(null);
   const flightStartTimeRef = useRef<number | null>(null);
+  const waitingStartTimeRef = useRef<number | null>(null);
   
   // Guardamos a última posição para animar o crash a partir dela
   const lastFlightPositionRef = useRef({ x: 160, y: 500, rotation: 0 });
 
   const multiplierRef = useRef(multiplier);
   const smoothMultiplierRef = useRef(1.00);
+  const latestFlightMultiplierRef = useRef<number>(1.00);
+  const finalCrashMultiplierRef = useRef<number | null>(null);
+  const [crashedMultiplier, setCrashedMultiplier] = useState<number>(1.00);
 
   useEffect(() => {
     multiplierRef.current = multiplier;
@@ -384,6 +570,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   useEffect(() => {
     if (status === GameStatus.FLYING) {
+      finalCrashMultiplierRef.current = null;
+      isCrewLockedRef.current = true;
+      lockedRoundCrewRef.current = Math.max(lockedRoundCrewRef.current, statsRef.current?.count || 0);
       if (prevStatusRef.current !== GameStatus.FLYING) {
         flightStartTimeRef.current = Date.now();
         smoothMultiplierRef.current = 1.00;
@@ -393,23 +582,74 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         smoothMultiplierRef.current = multiplierRef.current;
       }
     }
-    if (prevStatusRef.current === GameStatus.FLYING && status === GameStatus.CRASHED) {
-      setIsShaking(true);
-      crashStartTimeRef.current = Date.now();
-      setTimeout(() => setIsShaking(false), 500);
+    
+    if (status === GameStatus.CRASHED) {
+      const finalMult = Math.max(multiplier, multiplierRef.current, latestFlightMultiplierRef.current, 1.00);
+      finalCrashMultiplierRef.current = finalMult;
+      setCrashedMultiplier(finalMult);
+      multiplierRef.current = finalMult;
+      
+      const alt = getAltitudeFromMultiplier(finalMult, false);
+      if (altitudeTextRef.current) {
+        altitudeTextRef.current.textContent = alt.text;
+      }
+      if (altitudeRateRef.current) {
+        altitudeRateRef.current.textContent = `FINAL (${alt.validMult.toFixed(2)}x)`;
+        altitudeRateRef.current.className = 'text-[8px] sm:text-[9px] font-black font-mono tracking-tight shrink-0 text-cyan-400';
+      }
+      if (altitudeLevelRef.current) {
+        altitudeLevelRef.current.textContent = alt.level;
+      }
+      if (altitudeBarRef.current) {
+        altitudeBarRef.current.style.height = `${alt.barPct}%`;
+      }
+      if (altitudePulseRef.current) {
+        altitudePulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]';
+      }
+
+      if (!crashStartTimeRef.current) {
+        crashStartTimeRef.current = Date.now();
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 600);
+      }
     }
     
     if (status === GameStatus.WAITING) {
+      finalCrashMultiplierRef.current = null;
       crashStartTimeRef.current = null;
       flightStartTimeRef.current = null;
+      waitingStartTimeRef.current = Date.now();
+      isCrewLockedRef.current = false;
+      const realWaitingCount = statsRef.current?.count || 0;
+      lockedRoundCrewRef.current = realWaitingCount;
+
+      if (crewTextRef.current) {
+        crewTextRef.current.textContent = String(realWaitingCount);
+      }
+      if (crewStatusLabelRef.current) {
+        crewStatusLabelRef.current.textContent = realWaitingCount > 0 ? 'EMBARCANDO...' : 'EMBARQUE ABERTO';
+      }
+      if (crewWinnersContainerRef.current) {
+        crewWinnersContainerRef.current.style.display = 'none';
+      }
+      if (crewPulseRef.current) {
+        crewPulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-amber-400 animate-ping shadow-[0_0_6px_rgba(251,191,36,0.9)]';
+      }
+
       // Reset visual elements immediately
-      if (planeGroupRef.current) planeGroupRef.current.setAttribute('transform', `translate(160, 500) rotate(0) scale(1.6)`);
+      if (planeGroupRef.current) {
+        planeGroupRef.current.setAttribute('transform', `translate(160, 500) rotate(0) scale(1.6)`);
+        planeGroupRef.current.setAttribute('opacity', '1');
+      }
       if (curvePathRef.current) curvePathRef.current.setAttribute('d', '');
       if (areaPathRef.current) areaPathRef.current.setAttribute('d', '');
+      if (shockwaveRef.current) shockwaveRef.current.setAttribute('opacity', '0');
+    } else {
+      waitingStartTimeRef.current = null;
     }
 
     prevStatusRef.current = status;
-  }, [status]);
+  }, [status, multiplier]);
 
   const customOffsetRef = useRef(customOffset);
   useEffect(() => {
@@ -435,13 +675,64 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (status === GameStatus.FLYING) {
         // Use o multiplicador de estado unificado diretamente para sincronização absoluta de 100%
         const displayMult = currentMult;
+        const alt = getAltitudeFromMultiplier(displayMult, false);
 
         // Calcula o tempo decorrido preciso com base na fórmula exponencial do multiplicador
         const flightTimeElapsed = Math.max(0, Math.log(Math.max(1.0001, displayMult)) / Math.log(1.12));
 
         // Atualiza Texto com FPS do Monitor (silky smooth)
         if (multiplierTextRef.current) {
-            multiplierTextRef.current.textContent = displayMult.toFixed(2) + 'x';
+            multiplierTextRef.current.textContent = alt.validMult.toFixed(2) + 'x';
+        }
+
+        // Guarda a telemetria real contínua do voo
+        latestFlightMultiplierRef.current = alt.validMult;
+        lastRealAltitudeRef.current = alt.meters;
+        lastRealLevelRef.current = alt.level;
+        lastRealRateRef.current = alt.rate;
+        lastRealBarPctRef.current = alt.barPct;
+
+        if (altitudeTextRef.current) {
+          altitudeTextRef.current.textContent = alt.text;
+        }
+
+        if (altitudeRateRef.current) {
+          altitudeRateRef.current.textContent = alt.rate;
+          altitudeRateRef.current.className = 'text-[8px] sm:text-[9px] font-black font-mono tracking-tight shrink-0 text-emerald-400';
+        }
+
+        if (altitudeLevelRef.current) {
+          altitudeLevelRef.current.textContent = alt.level;
+        }
+
+        if (altitudeBarRef.current) {
+          altitudeBarRef.current.style.height = `${alt.barPct}%`;
+        }
+
+        if (altitudePulseRef.current) {
+          altitudePulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-cyan-400 animate-pulse shadow-[0_0_6px_rgba(34,211,238,0.9)]';
+        }
+
+        // Atualiza Tripulação em Voo (diminui em tempo real conforme as pessoas sacam)
+        const totalInRound = Math.max(lockedRoundCrewRef.current, statsRef.current?.count || 0);
+        lockedRoundCrewRef.current = totalInRound;
+        const realWinners = statsRef.current?.winnersCount || 0;
+        const remainingInFlight = Math.max(0, totalInRound - realWinners);
+
+        if (crewTextRef.current) {
+          crewTextRef.current.textContent = String(remainingInFlight);
+        }
+        if (crewWinnersTextRef.current) {
+          crewWinnersTextRef.current.textContent = String(realWinners);
+        }
+        if (crewWinnersContainerRef.current) {
+          crewWinnersContainerRef.current.style.display = realWinners > 0 ? 'flex' : 'none';
+        }
+        if (crewStatusLabelRef.current) {
+          crewStatusLabelRef.current.textContent = 'EM VOO';
+        }
+        if (crewPulseRef.current) {
+          crewPulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.9)]';
         }
 
         // Acelera grid baseado no mult
@@ -512,37 +803,131 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
       } else if (status === GameStatus.CRASHED) {
-        // --- CRASH LOGIC ---
+        // --- CRASH LOGIC (FLIGHT ESCAPE / VOOU PARA LONGE) ---
         speed = 0.8;
-        let elapsed = 0;
-        if (crashStartTimeRef.current) {
-          elapsed = (Date.now() - crashStartTimeRef.current) / 1000;
+        if (!crashStartTimeRef.current) {
+          crashStartTimeRef.current = Date.now();
         }
+        const elapsed = (Date.now() - crashStartTimeRef.current) / 1000;
         
         // Alinha imediatamente com o valor final oficial do crash
         smoothMultiplierRef.current = currentMult;
-        
-        // Texto Estático do Crash
-        if (multiplierTextRef.current) {
-            multiplierTextRef.current.textContent = currentMult.toFixed(2) + 'x';
-        }
 
-        // Animação de Queda (Simples)
-        const startCrashX = lastFlightPositionRef.current.x;
-        const startCrashY = lastFlightPositionRef.current.y;
+        // Posição de escape suave e progressiva (decolagem para longe sem cortes bruscos)
+        const startCrashX = Math.max(260, lastFlightPositionRef.current.x);
+        const startCrashY = Math.min(420, lastFlightPositionRef.current.y);
         
-        const planeX = startCrashX + (elapsed * 2000); 
-        const planeY = startCrashY - (elapsed * 1000); 
-        const rotation = lastFlightPositionRef.current.rotation - (elapsed * 50);
+        // Aceleração exponencial supersônica cinematográfica
+        const progress = Math.min(1, elapsed / 2.2);
+        const hyperSpeed = Math.pow(progress, 2.2);
+        const planeX = startCrashX + (elapsed * 500) + (hyperSpeed * 1300);
+        const planeY = startCrashY - (elapsed * 300) - (hyperSpeed * 850);
+        const rotation = lastFlightPositionRef.current.rotation - Math.min(30, elapsed * 18);
+        const scale = Math.max(0.15, 1.6 - (progress * 1.35));
+        const opacity = Math.max(0, 1 - (elapsed / 2.2));
 
         if (planeGroupRef.current) {
-             planeGroupRef.current.setAttribute('transform', `translate(${planeX}, ${planeY}) rotate(${rotation}) scale(1.6)`);
+             planeGroupRef.current.setAttribute('transform', `translate(${planeX}, ${planeY}) rotate(${rotation}) scale(${scale})`);
+             planeGroupRef.current.setAttribute('opacity', String(opacity));
+        }
+
+        // Sonic boom shockwave expansion
+        if (shockwaveRef.current) {
+             const shockRadius = Math.min(220, elapsed * 300);
+             const shockOpacity = Math.max(0, 1 - (elapsed / 0.9));
+             shockwaveRef.current.setAttribute('cx', String(startCrashX));
+             shockwaveRef.current.setAttribute('cy', String(startCrashY));
+             shockwaveRef.current.setAttribute('r', String(shockRadius));
+             shockwaveRef.current.setAttribute('opacity', String(shockOpacity));
+        }
+
+        // Mantém a curva/rastro do voo desenhada com perfeição até o ponto final alcançado
+        const curveEndX = Math.max(startX + 20, lastFlightPositionRef.current.x);
+        const finalPathY = lastFlightPositionRef.current.y;
+        const cp1x = startX + (curveEndX - startX) * 0.5;
+        const cp1y = floorY;
+        const cp2x = startX + (curveEndX - startX) * 0.8;
+        const cp2y = floorY - (floorY - finalPathY) * 0.2;
+        const d = `M ${startX} ${floorY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curveEndX} ${finalPathY}`;
+        
+        if (curvePathRef.current) curvePathRef.current.setAttribute('d', d);
+        if (areaPathRef.current) areaPathRef.current.setAttribute('d', `${d} L ${curveEndX} ${floorY} Z`);
+
+        // Mantém e exibe a altitude e métrica REAL exata alcançada pelo avião quando voou pra longe
+        if (finalCrashMultiplierRef.current === null) {
+          finalCrashMultiplierRef.current = Math.max(multiplier, multiplierRef.current, latestFlightMultiplierRef.current, 1.00);
+        }
+        const finalCrashMult = finalCrashMultiplierRef.current;
+        const alt = getAltitudeFromMultiplier(finalCrashMult, false);
+
+        if (altitudeTextRef.current) {
+          altitudeTextRef.current.textContent = alt.text;
+        }
+        if (altitudeRateRef.current) {
+          altitudeRateRef.current.textContent = `FINAL (${alt.validMult.toFixed(2)}x)`;
+          altitudeRateRef.current.className = 'text-[8px] sm:text-[9px] font-black font-mono tracking-tight shrink-0 text-cyan-400';
+        }
+        if (altitudeLevelRef.current) {
+          altitudeLevelRef.current.textContent = alt.level;
+        }
+        if (altitudeBarRef.current) {
+          altitudeBarRef.current.style.height = `${alt.barPct}%`;
+        }
+        if (altitudePulseRef.current) {
+          altitudePulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]';
+        }
+
+        // Tripulação congelada no fim do voo
+        if (crewPulseRef.current) {
+          crewPulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]';
+        }
+        if (crewStatusLabelRef.current) {
+          crewStatusLabelRef.current.textContent = 'FINAL';
         }
 
       } else {
          // --- WAITING LOGIC ---
          if (multiplierTextRef.current) {
             multiplierTextRef.current.textContent = '1.00x';
+         }
+
+         lastRealAltitudeRef.current = 0;
+         lastRealLevelRef.current = 'SOLO';
+         lastRealRateRef.current = 'PISTA 09L';
+         lastRealBarPctRef.current = 4;
+
+         if (altitudeTextRef.current) {
+            altitudeTextRef.current.textContent = '0 m';
+         }
+         if (altitudeRateRef.current) {
+            altitudeRateRef.current.textContent = 'PISTA 09L';
+            altitudeRateRef.current.className = 'text-[8px] sm:text-[9px] font-black font-mono tracking-tight shrink-0 text-white/30';
+         }
+         if (altitudeLevelRef.current) {
+            altitudeLevelRef.current.textContent = 'SOLO';
+         }
+         if (altitudeBarRef.current) {
+            altitudeBarRef.current.style.height = '4%';
+         }
+         if (altitudePulseRef.current) {
+            altitudePulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-white/30';
+         }
+
+         // Tripulação embarcando em tempo real conforme entram na rodada
+         const realWaitingCount = statsRef.current?.count || 0;
+         lockedRoundCrewRef.current = realWaitingCount;
+
+         if (crewTextRef.current) {
+            crewTextRef.current.textContent = String(realWaitingCount);
+         }
+         if (crewStatusLabelRef.current) {
+            crewStatusLabelRef.current.textContent = realWaitingCount > 0 ? 'EMBARCANDO...' : 'EMBARQUE ABERTO';
+         }
+         if (crewWinnersContainerRef.current) {
+            crewWinnersContainerRef.current.style.display = 'none';
+         }
+         if (crewPulseRef.current) {
+            crewPulseRef.current.className = 'w-1.5 h-1.5 rounded-full shrink-0 bg-amber-400 animate-ping shadow-[0_0_6px_rgba(251,191,36,0.9)]';
          }
          
          // Bobbing effect while waiting
@@ -595,6 +980,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const isWaiting = status === GameStatus.WAITING;
   const isFlying = status === GameStatus.FLYING;
   const isCrashed = status === GameStatus.CRASHED;
+  const finalEffectiveMult = isCrashed 
+    ? (finalCrashMultiplierRef.current || (multiplier > 1.0 ? multiplier : (crashedMultiplier > 1.0 ? crashedMultiplier : 1.00))) 
+    : multiplier;
+  const initialAltitudeData = getAltitudeFromMultiplier(finalEffectiveMult, isWaiting);
+
+  // Contagem de pessoas reais na rodada em tempo real
+  const realRoundCount = stats?.count || 0;
+  const realWinnersCount = stats?.winnersCount || 0;
+  const inFlightCount = isWaiting 
+    ? realRoundCount 
+    : Math.max(0, Math.max(lockedRoundCrewRef.current, realRoundCount) - realWinnersCount);
 
   return (
     <div className={`relative w-full h-full bg-[#050505] flex items-center justify-center overflow-hidden select-none transition-colors duration-1000 ${isCrashed ? 'bg-[#150000]' : ''} ${isShaking ? 'animate-canvas-shake' : ''}`}>
@@ -663,31 +1059,42 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       {/* Dynamic Animated Cosmic Background Wrapper */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         {/* Sky/Space Canvas Depth */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#020204] via-[#050609] to-[#010103] opacity-100 transition-colors duration-1000" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#020204] via-[#050609] to-[#010103] opacity-100 transition-colors duration-1000 z-0" />
         
-        {/* Dynamic Theme Glow Blobs synced with selected skin color */}
-        <div 
-          className="absolute top-1/4 left-1/3 w-[550px] h-[550px] rounded-full filter blur-[150px] transition-all mix-blend-screen pointer-events-none duration-1000"
-          style={{
-            background: `radial-gradient(circle, ${skinConfig.areaColor} 0%, transparent 70%)`,
-            animationName: 'nebulaPulse',
-            animationDuration: '14s',
-            animationIterationCount: 'infinite',
-            animationTimingFunction: 'ease-in-out',
-          }}
+        {/* Custom Background Image/Video with Blur, Fit and Opacity (Seamless transition without black flash) */}
+        <SeamlessCanvasBackground 
+          config={canvasBgConfig} 
+          activeImage={activeCanvasBgImage} 
+          activeVideo={activeCanvasBgVideo} 
         />
-        <div 
-          className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] rounded-full filter blur-[130px] transition-all mix-blend-screen pointer-events-none duration-1000"
-          style={{
-            background: `radial-gradient(circle, ${isCrashed ? '#e51a31' : skinConfig.areaColor} 0%, transparent 70%)`,
-            animationName: 'nebulaPulse',
-            animationDuration: '18s',
-            animationIterationCount: 'infinite',
-            animationTimingFunction: 'ease-in-out',
-            animationDirection: 'reverse',
-            opacity: 0.6
-          }}
-        />
+        
+        {/* Dynamic Theme Glow Blobs synced with selected skin color - Hiden when custom background is active to avoid blur/fog overlap */}
+        {!canvasBgConfig?.enabled && (
+          <>
+            <div 
+              className="absolute top-1/4 left-1/3 w-[550px] h-[550px] rounded-full filter blur-[150px] transition-all mix-blend-screen pointer-events-none duration-1000"
+              style={{
+                background: `radial-gradient(circle, ${skinConfig.areaColor} 0%, transparent 70%)`,
+                animationName: 'nebulaPulse',
+                animationDuration: '14s',
+                animationIterationCount: 'infinite',
+                animationTimingFunction: 'ease-in-out',
+              }}
+            />
+            <div 
+              className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] rounded-full filter blur-[130px] transition-all mix-blend-screen pointer-events-none duration-1000"
+              style={{
+                background: `radial-gradient(circle, ${isCrashed ? '#e51a31' : skinConfig.areaColor} 0%, transparent 70%)`,
+                animationName: 'nebulaPulse',
+                animationDuration: '18s',
+                animationIterationCount: 'infinite',
+                animationTimingFunction: 'ease-in-out',
+                animationDirection: 'reverse',
+                opacity: 0.6
+              }}
+            />
+          </>
+        )}
 
         {/* Cyber Grid Horizon Lines */}
         <div className="absolute bottom-0 inset-x-0 h-[300px] bg-gradient-to-t from-cyan-500/[0.02] to-transparent pointer-events-none opacity-20" />
@@ -760,35 +1167,147 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         />
       </div>
       
-      {(isWaiting || isFlying) && stats && stats.count > 0 && (
-        <div className="absolute bottom-4 right-4 z-40 bg-black/40 backdrop-blur-md rounded-full border border-white/10 px-4 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-lg">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/50">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-          <div className="flex flex-col text-right">
-            <span className="text-sm font-black text-white leading-none tabular-nums">
-              { isWaiting ? stats.count : stats.count - stats.winnersCount }
-            </span>
-            <span className="text-[8px] font-bold text-white/40 uppercase tracking-wider leading-none">
-              { isWaiting ? 'Jogadores' : 'No Voo' }
-            </span>
+      {/* Canto Inferior Direito: Tripulação em Voo (Tempo Real) */}
+      {showHud && (
+        <div className="absolute bottom-2.5 right-2.5 sm:bottom-4 sm:right-4 z-40 pointer-events-none select-none animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="bg-black/65 sm:bg-black/50 backdrop-blur-md rounded-2xl border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 flex items-center gap-2.5 sm:gap-3 shadow-[0_8px_30px_rgba(0,0,0,0.6)] border-r-2 border-r-emerald-400">
+            {/* Informações da Tripulação */}
+            <div className="flex flex-col text-right">
+              {/* Header Label com Indicador de Status */}
+              <div className="flex items-center justify-end gap-1.5 mb-0.5">
+                <span 
+                  ref={crewStatusLabelRef}
+                  className="text-[7px] sm:text-[7.5px] font-bold uppercase tracking-wider text-white/50 truncate"
+                >
+                  {isWaiting 
+                    ? (realRoundCount > 0 ? 'EMBARCANDO...' : 'EMBARQUE ABERTO') 
+                    : isFlying 
+                    ? 'EM VOO' 
+                    : 'FINAL'}
+                </span>
+                <span className="text-white/20 text-[7px]">•</span>
+                <span className="text-[7.5px] sm:text-[8px] font-black uppercase tracking-[0.2em] text-emerald-400 font-mono">
+                  TRIPULAÇÃO
+                </span>
+                <span 
+                  ref={crewPulseRef}
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isFlying 
+                      ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.9)]' 
+                      : isCrashed 
+                      ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]' 
+                      : 'bg-amber-400 animate-ping shadow-[0_0_6px_rgba(251,191,36,0.9)]'
+                  }`} 
+                />
+              </div>
+
+              {/* Contadores da Tripulação em Voo e Saques */}
+              <div className="flex items-center justify-end gap-2">
+                {/* Tripulantes que já Sacaram */}
+                <div 
+                  ref={crewWinnersContainerRef}
+                  className="items-baseline gap-1"
+                  style={{ display: !isWaiting && realWinnersCount > 0 ? 'flex' : 'none' }}
+                >
+                  <span 
+                    ref={crewWinnersTextRef}
+                    className="font-black italic text-sm sm:text-base text-[#d97d1b] font-mono leading-none tracking-tight tabular-nums drop-shadow-md"
+                  >
+                    {realWinnersCount}
+                  </span>
+                  <span className="text-[7.5px] sm:text-[8px] font-bold text-[#d97d1b]/70 uppercase tracking-wider leading-none">
+                    Sacou
+                  </span>
+                  <div className="h-3.5 w-px bg-white/10 ml-1" />
+                </div>
+
+                {/* Tripulação Ativa no Voo */}
+                <div className="flex items-baseline gap-1">
+                  <span 
+                    ref={crewTextRef}
+                    className="font-black italic text-base sm:text-lg md:text-xl text-white font-mono leading-none tracking-tight tabular-nums drop-shadow-md"
+                  >
+                    {inFlightCount}
+                  </span>
+                  <span className="text-[7.5px] sm:text-[8px] font-bold text-white/40 uppercase tracking-wider leading-none">
+                    {isWaiting ? 'A Bordo' : 'No Voo'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Ícone de Tripulação com Avião */}
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-emerald-400 shadow-inner">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
           </div>
-          { isFlying && stats.winnersCount > 0 && (
-              <>
-                  <div className="h-5 w-px bg-white/10" />
-                  <div className="flex flex-col text-right">
-                      <span className="text-sm font-black text-[#d97d1b] leading-none tabular-nums">
-                          {stats.winnersCount}
-                      </span>
-                      <span className="text-[8px] font-bold text-[#d97d1b]/60 uppercase tracking-wider leading-none">
-                          Sacou
-                      </span>
-                  </div>
-              </>
-          )}
+        </div>
+      )}
+
+      {/* Canto Inferior Esquerdo: Telemetria & Altitude de Voo em Tempo Real */}
+      {showHud && (
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-40 pointer-events-none select-none animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="bg-black/65 sm:bg-black/50 backdrop-blur-md rounded-2xl border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 flex items-center gap-2 sm:gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)] border-l-2 border-l-cyan-400">
+            {/* Medidor visual de altitude vertical (Altimeter Bar) */}
+            <div className="flex flex-col items-center justify-end h-7 sm:h-8 w-1.5 sm:w-2 bg-white/10 rounded-full overflow-hidden p-0.5 shrink-0">
+              <div 
+                ref={altitudeBarRef}
+                className="w-full bg-gradient-to-t from-cyan-500 via-sky-400 to-emerald-400 rounded-full transition-all duration-150 ease-linear shadow-[0_0_8px_rgba(6,182,212,0.8)]"
+                style={{ height: `${initialAltitudeData.barPct}%` }}
+              />
+            </div>
+
+            {/* Dados do Instrumento */}
+            <div className="flex flex-col">
+              {/* Rótulo Superior com Indicador de Status */}
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span 
+                  ref={altitudePulseRef}
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isWaiting 
+                      ? 'bg-white/30' 
+                      : isCrashed 
+                      ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]'
+                      : 'bg-cyan-400 animate-pulse shadow-[0_0_6px_rgba(34,211,238,0.9)]'
+                  }`} 
+                />
+                <span className="text-[7.5px] sm:text-[8px] font-black uppercase tracking-[0.2em] text-cyan-300/80 font-mono">
+                  ALTITUDE
+                </span>
+                <span className="text-white/20 text-[7px]">•</span>
+                <span 
+                  ref={altitudeLevelRef}
+                  className="text-[7px] sm:text-[7.5px] font-bold uppercase tracking-wider text-white/50 truncate max-w-[85px] sm:max-w-[120px]"
+                >
+                  {initialAltitudeData.level}
+                </span>
+              </div>
+
+              {/* Valor Principal da Altitude e Taxa Vertical */}
+              <div className="flex items-baseline gap-1.5 sm:gap-2">
+                <span 
+                  ref={altitudeTextRef}
+                  className="font-black italic text-sm sm:text-base md:text-lg text-white font-mono leading-none tracking-tight tabular-nums drop-shadow-md"
+                >
+                  {initialAltitudeData.text}
+                </span>
+
+                <span 
+                  ref={altitudeRateRef}
+                  className={`text-[8px] sm:text-[9px] font-black font-mono tracking-tight shrink-0 ${
+                    isWaiting ? 'text-white/30' : isCrashed ? 'text-cyan-400' : 'text-emerald-400'
+                  }`}
+                >
+                  {isWaiting ? 'PISTA 09L' : isCrashed ? `FINAL (${initialAltitudeData.validMult.toFixed(2)}x)` : initialAltitudeData.rate}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -798,7 +1317,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             <div className="flex items-center gap-3 py-1.5 px-5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md shadow-lg">
                <div className="flex items-center font-black text-lg italic tracking-tighter uppercase">
                   <span className="text-[#e51a31]">AERO</span>
-                  <span className="text-white">bet</span>
+                  <span className="text-white">game</span>
                </div>
             </div>
 
@@ -832,12 +1351,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         )}
 
         {isCrashed && (
-          <div className="flex flex-col items-center justify-center animate-in zoom-in duration-300">
-            <h2 className="text-[#e51a31] text-4xl md:text-5xl font-black uppercase italic tracking-tighter mb-1 drop-shadow-[0_0_30px_rgba(229,26,49,0.6)]">
+          <div className="flex flex-col items-center justify-center animate-in zoom-in-90 duration-300 px-4 text-center z-40">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-950/90 border border-red-500/50 shadow-[0_0_25px_rgba(229,26,49,0.6)] mb-2 animate-bounce">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#e51a31] animate-ping" />
+              <span className="text-[#ff3850] text-xs sm:text-sm font-black uppercase tracking-widest">
+                FIM DE VOO
+              </span>
+            </div>
+            <h2 className="text-[#e51a31] text-3xl sm:text-5xl md:text-7xl font-black uppercase italic tracking-tighter mb-1 drop-shadow-[0_0_50px_rgba(229,26,49,0.9)] whitespace-nowrap select-none animate-pulse">
               VOOU PARA LONGE!
             </h2>
-            <div className="text-white text-7xl md:text-8xl font-black italic opacity-80 tabular-nums">
-              {multiplier.toFixed(2)}x
+            <div className="text-white text-6xl sm:text-8xl md:text-9xl font-black italic opacity-95 tabular-nums drop-shadow-[0_0_40px_rgba(229,26,49,0.6)] select-none">
+              {finalEffectiveMult.toFixed(2)}x
             </div>
           </div>
         )}
@@ -896,14 +1421,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           </linearGradient>
         </defs>
 
-        {/* Fuel Unit Removed */}
+        {/* Shockwave circle during crash flight away */}
+        <circle 
+          ref={shockwaveRef} 
+          cx="0" 
+          cy="0" 
+          r="0" 
+          fill="none" 
+          stroke="#ff2d55" 
+          strokeWidth="6" 
+          filter="url(#neonGlow)" 
+          opacity="0" 
+        />
 
         {!isCrashed && (
            <ellipse 
-              // Shadow follows plane logic roughly, or simply center it for waiting
               cx={isWaiting ? 150 : -100} cy={525} rx={50} ry={8} 
               fill="rgba(0,0,0,0.3)" filter="blur(8px)"
-              // Can animate this via ref too if needed, but low priority
            />
         )}
 
@@ -951,8 +1485,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
               width="180" 
               height="180" 
               style={{ 
-                mixBlendMode: 'screen', 
-                filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.85))',
+                mixBlendMode: 'normal', 
+                filter: 'drop-shadow(0px 8px 14px rgba(0,0,0,0.85))',
                 transform: customOffset.flipX ? 'scaleX(-1)' : 'none',
                 transformOrigin: 'center'
               }}

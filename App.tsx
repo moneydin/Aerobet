@@ -33,6 +33,25 @@ import ReferralModal from './components/ReferralModal';
 import BannerCarousel from './components/BannerCarousel';
 import StoreModal from './components/StoreModal';
 import HangarView from './components/HangarView';
+import ModeSelectionPortal from './components/ModeSelectionPortal';
+import AeroFantasyHub from './components/aerofantasy/AeroFantasyHub';
+import CabineLobbyModal from './components/CabineLobbyModal';
+import CabineActiveBanner from './components/CabineActiveBanner';
+import CabineChatDrawer from './components/CabineChatDrawer';
+import CabineCloseModal from './components/CabineCloseModal';
+import CabinePartnerSlot from './components/CabinePartnerSlot';
+import CabineExitConfirmationModal from './components/CabineExitConfirmationModal';
+import { 
+  getActiveCabineFromStorage, 
+  saveActiveCabineToStorage, 
+  updateCabineBalance, 
+  closeCabineSession,
+  sendCabineMessage,
+  listenToCabineMessages
+} from './src/utils/cabineService';
+import { cabineRadio } from './src/utils/cabineRadioService';
+import { CabineSession, CabineMessage } from './types';
+import { getCanvasBackgroundConfig, getRandomBackgroundImage, getRandomBackgroundVideo, subscribeToCanvasBackground, CanvasBackgroundConfig, saveCanvasBackgroundConfig } from './utils/canvasBackground';
 
 import { auth, db, signInWithGoogle, logout } from './src/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -87,7 +106,18 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  const isPermissionDenied = errInfo.error.toLowerCase().includes("permission-denied") || 
+                             errInfo.error.toLowerCase().includes("missing or insufficient permissions");
+  
+  if (isPermissionDenied) {
+    throw new Error(JSON.stringify(errInfo));
+  } else {
+    if (typeof window !== 'undefined') {
+      (window as any).firestoreQuotaExceeded = true;
+      window.dispatchEvent(new Event('firestore-quota-exceeded'));
+    }
+  }
 }
 
 function usePersistentState<T>(key: string, initialValue: T) {
@@ -112,9 +142,9 @@ function usePersistentState<T>(key: string, initialValue: T) {
 
 // ... Mock data e helpers permanecem os mesmos ...
 const MOCK_USERS_INITIAL = [
-  { id: 1, username: 'Jogador_Elite', balance: 3000.00, role: 'user', status: 'active', email: 'jogador@aerobet.com', phone: '(21) 99876-5432', cpf: '123.456.789-00', fullName: 'José da Silva' },
+  { id: 1, username: 'Jogador_Elite', balance: 3000.00, role: 'user', status: 'active', email: 'jogador@aerogame.com', phone: '(21) 99876-5432', cpf: '123.456.789-00', fullName: 'José da Silva' },
   { id: 2, username: 'MestreDoAero', balance: 15420.50, role: 'vip', status: 'active', email: 'mestre@trader.com', phone: '(11) 98888-7777', cpf: '987.654.321-99', fullName: 'Carlos Trader Pro' },
-  { id: 3, username: 'ReiDoVoo', balance: 12100.00, role: 'user', status: 'active', email: 'rei@aerobet.com', phone: '(21) 97777-6666', cpf: '456.789.123-44', fullName: 'Roberto Silva' },
+  { id: 3, username: 'ReiDoVoo', balance: 12100.00, role: 'user', status: 'active', email: 'rei@aerogame.com', phone: '(21) 97777-6666', cpf: '456.789.123-44', fullName: 'Roberto Silva' },
   { id: 4, username: 'Bot_Teste_01', balance: 50.00, role: 'bot', status: 'banned', email: 'bot01@system.io', phone: 'N/A', cpf: '000.000.000-00', fullName: 'System Bot 01' },
 ];
 
@@ -154,7 +184,7 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
   { id: 'ach-4', title: 'Consistência', description: 'Jogue por 7 dias consecutivos.', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, unlocked: false, progress: 1, total: 7, rewardFlights: 20, claimed: false }
 ];
 
-const DEFAULT_PIX_KEY = "00020126580014br.gov.bcb.pix013625503d0e-c00c-4f88-8ce7-f8d0653545d852040000530398654040.015802BR5922AERObetPagamentos6011RioDeJaneiro62290525WPY2d48fb50102140d493d86c63049F86";
+const DEFAULT_PIX_KEY = "00020126580014br.gov.bcb.pix013625503d0e-c00c-4f88-8ce7-f8d0653545d852040000530398654040.015802BR5922AEROgamePagamentos6011RioDeJaneiro62290525WPY2d48fb50102140d493d86c63049F86";
 const DEPOSIT_AMOUNTS = [20, 50, 100, 200, 500, 1000];
 const INITIAL_REFERRALS: Referral[] = [
     { id: 'ref1', username: 'Amigo_Teste_1', registeredAt: Date.now() - 86400000, depositedAmount: 0, flightsCount: 0, status: 'pending' },
@@ -164,7 +194,7 @@ const INITIAL_REFERRALS: Referral[] = [
 const INITIAL_BANNERS: Banner[] = [
   {
     id: 'b1',
-    title: "BEM-VINDO AO AERObet",
+    title: "BEM-VINDO AO AEROgame",
     subtitle: "Ganhe 100% de bônus no seu primeiro depósito via PIX.",
     image: "https://images.unsplash.com/photo-1596838132731-3301c3fd4317?q=80&w=2940&auto=format&fit=crop",
     color: "from-[#e51a31] to-[#8b0010]",
@@ -261,6 +291,7 @@ const BannedScreen = () => (
 );
 
 const App: React.FC = () => {
+  const [isOfflineFallback, setIsOfflineFallback] = useState<boolean>(false);
   const [rtp, setRtp] = usePersistentState<number>('aerobet_rtp', 97); 
   const [banners, setBanners] = usePersistentState<Banner[]>('aerobet_banners', INITIAL_BANNERS);
   const [freeFlightConfigs, setFreeFlightConfigs] = usePersistentState<FreeFlightConfig[]>('aerobet_ff_configs', INITIAL_FREE_FLIGHT_CONFIGS);
@@ -270,15 +301,32 @@ const App: React.FC = () => {
   const [houseBankroll, setHouseBankroll] = usePersistentState<number>('aerobet_houseBankroll', 15420000.00); 
   const [revenueStats, setRevenueStats] = usePersistentState<{ subscriptions: number; missions: number }>('aerobet_revenue', { subscriptions: 0, missions: 0 });
   
-  const { status, multiplier, countdown, nextRoundServerSeedHash, forceCrashNow, setNextRoundResult, updateRtp, requestCashout } = useAviator(rtp);
+  const { status, multiplier, countdown, nextRoundServerSeedHash, history: socketHistory, forceCrashNow, setNextRoundResult, updateRtp, requestCashout } = useAviator(rtp);
   
   useEffect(() => {
-    if (status === GameStatus.FLYING) {
-      sounds.startEngine(multiplier);
-    } else {
-      sounds.stopEngine();
+    const handleQuota = () => {
+      setIsOfflineFallback(true);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('firestore-quota-exceeded', handleQuota);
+      if ((window as any).firestoreQuotaExceeded) {
+        setIsOfflineFallback(true);
+      }
     }
-  }, [status, multiplier]);
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('firestore-quota-exceeded', handleQuota);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOfflineFallback && socketHistory && socketHistory.length > 0) {
+      setHistory(socketHistory);
+    }
+  }, [isOfflineFallback, socketHistory]);
+
+  // Engine sound effect is configured after activeCategory definition below
 
   const [history, setHistory] = useState<GameHistory[]>([]);
   const [myHistory, setMyHistory] = useState<LiveBet[]>([]);
@@ -309,6 +357,29 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = usePersistentState<boolean>('aerobet_auth', true);
   const [showLanding, setShowLanding] = useState(false);
   const [isInInitialLanding, setIsInInitialLanding] = useState(true);
+
+  // --- CABINE (CO-OP PILOTO & COPILOTO) STATE ---
+  const [activeCabine, setActiveCabine] = useState<CabineSession | null>(() => getActiveCabineFromStorage());
+  const [isCabineLobbyOpen, setIsCabineLobbyOpen] = useState(false);
+  const [isCabineChatOpen, setIsCabineChatOpen] = useState(false);
+  const [isCabineCloseModalOpen, setIsCabineCloseModalOpen] = useState(false);
+  const [pendingNavigationAction, setPendingNavigationAction] = useState<(() => void) | null>(null);
+  const [simulatedPartnerBet, setSimulatedPartnerBet] = useState<{
+    amount: number;
+    targetMult?: number;
+    cashedOut?: boolean;
+    cashoutAt?: number;
+    profit?: number;
+  } | null>(null);
+
+  // --- CABINE CHAT & RADIO INTERCOM STATE ---
+  const [cabineMessages, setCabineMessages] = useState<CabineMessage[]>([]);
+  const [isRadioOn, setIsRadioOn] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isTalking, setIsTalking] = useState(false);
+  const [isPartnerTalking, setIsPartnerTalking] = useState(false);
+  const [isHandsFree, setIsHandsFree] = useState(false);
+  const [radioVolume, setRadioVolume] = useState(0);
   
   // --- BETTING STATE ---
   const [bet1, setBet1] = useState<Bet | null>(null);
@@ -324,17 +395,81 @@ const App: React.FC = () => {
   const [liveBets, setLiveBets] = useState<LiveBet[]>([]);
   const [roundStats, setRoundStats] = useState({ count: 0, amount: 0, wins: 0, winnersCount: 0 });
 
+  // Contagem autoritativa em tempo real de participantes e saques na rodada
+  const effectiveRoundStats = useMemo(() => {
+    let userActiveBetsCount = 0;
+    let userWinnersCount = 0;
+
+    if (status === GameStatus.WAITING) {
+      if (nextRoundBet1) userActiveBetsCount++;
+      if (nextRoundBet2) userActiveBetsCount++;
+    } else if (status === GameStatus.FLYING || status === GameStatus.CRASHED) {
+      if (bet1) {
+        userActiveBetsCount++;
+        if (bet1.status === 'cashed' || bet1.cashoutAt) userWinnersCount++;
+      }
+      if (bet2) {
+        userActiveBetsCount++;
+        if (bet2.status === 'cashed' || bet2.cashoutAt) userWinnersCount++;
+      }
+    }
+
+    // Combina com outros participantes da lista de apostas da rodada
+    const otherBets = liveBets.filter(b => !b.isMe);
+    const otherCount = otherBets.length;
+    const otherWinners = otherBets.filter(b => b.cashedOut || (b.payout && b.payout > 0)).length;
+
+    const totalCount = userActiveBetsCount + otherCount;
+    const totalWinners = userWinnersCount + otherWinners;
+    const totalAmount = (nextRoundBet1?.amount || 0) + (nextRoundBet2?.amount || 0) + 
+      (bet1?.amount || 0) + (bet2?.amount || 0) + otherBets.reduce((acc, b) => acc + (b.amount || 0), 0);
+
+    return {
+      count: totalCount,
+      amount: totalAmount,
+      wins: totalWinners,
+      winnersCount: totalWinners
+    };
+  }, [status, nextRoundBet1, nextRoundBet2, bet1, bet2, liveBets]);
+
   // --- OTHER LOCAL STATE ---
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [activeLeagueType, setActiveLeagueType] = useState<AeroFantasyLeagueType | null>(null);
   const [aerocoinBalance, setAerocoinBalance] = useState<number>(0);
   const [fantasyFlightsLeft, setFantasyFlightsLeft] = useState<number | null>(null);
+  const [userFantasyScore, setUserFantasyScore] = useState<number>(0);
+  const [userFantasyFlightsUsed, setUserFantasyFlightsUsed] = useState<number>(0);
+  const [userFantasyMaxMult, setUserFantasyMaxMult] = useState<number>(0);
+  const [fantasyTargetView, setFantasyTargetView] = useState<'room' | 'hall'>('room');
+  const [currentUsername, setCurrentUsername] = usePersistentState<string>('aerobet_username', "Visitante");
+
+  // Real-time calculation of Rank and Points needed to climb in current AeroFantasy room
+  const { myFantasyRank, pointsToClimb, aheadCompetitor } = useMemo(() => {
+    if (!activeEventId) return { myFantasyRank: 1, pointsToClimb: 0, aheadCompetitor: null };
+    const baseCompetitors = [
+      { id: 'p1', name: 'PLAYER_07', score: 984.2 },
+      { id: 'p2', name: 'ACE_TOPGUN', score: 941.0 },
+      { id: 'p3', name: 'FLYER99', score: 915.0 },
+      { id: 'p4', name: 'STEALTH_BR', score: 874.0 },
+      { id: 'p5', name: 'TURBO_JET', score: 820.0 },
+      { id: 'p6', name: 'FALCON_ACE', score: 765.5 },
+      { id: 'p7', name: 'SKY_KING', score: 680.0 },
+      { id: 'p8', name: 'SONIC_V', score: 540.0 },
+      { id: 'p9', name: 'DELTA_9', score: 410.2 },
+    ];
+    const me = { id: 'me', name: currentUsername, score: userFantasyScore, isMe: true };
+    const all = [...baseCompetitors, me].sort((a, b) => b.score - a.score);
+    const rank = all.findIndex(p => p.id === 'me') + 1;
+    const ahead = rank > 1 ? all[rank - 2] : null;
+    const toClimb = ahead ? Math.max(0.1, Math.round((ahead.score - userFantasyScore + 0.1) * 10) / 10) : 0;
+    return { myFantasyRank: rank, pointsToClimb: toClimb, aheadCompetitor: ahead };
+  }, [activeEventId, currentUsername, userFantasyScore]);
+
   const [isMuted, setIsMuted] = useState(false);
   useEffect(() => {
     sounds.setMute(isMuted);
   }, [isMuted]);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentUsername, setCurrentUsername] = usePersistentState<string>('aerobet_username', "Visitante");
   const [userAvatar, setUserAvatar] = useState("https://api.dicebear.com/7.x/avataaars/svg?seed=Visitante&backgroundColor=b6e3f4");
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAeroFantasyAdminOpen, setIsAeroFantasyAdminOpen] = useState(false);
@@ -369,6 +504,71 @@ const App: React.FC = () => {
 
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'aerobet' | 'aerofantasy' | 'store' | 'hangar'>('aerobet');
+
+  // Canvas custom background rotation state
+  const [canvasBgConfig, setCanvasBgConfig] = useState<CanvasBackgroundConfig>(getCanvasBackgroundConfig());
+  const [activeCanvasBgImage, setActiveCanvasBgImage] = useState<string>('');
+  const [activeCanvasBgVideo, setActiveCanvasBgVideo] = useState<string>('');
+
+  // Gerenciamento estrito de áudio: o som do jogo NUNCA toca na fanpage de introdução/escolha
+  useEffect(() => {
+    if (!isInInitialLanding && activeCategory === 'aerobet' && status === GameStatus.FLYING) {
+      sounds.startEngine(multiplier);
+    } else {
+      sounds.stopEngine();
+    }
+  }, [status, multiplier, isInInitialLanding, activeCategory]);
+
+  useEffect(() => {
+    if (isInInitialLanding) {
+      sounds.stopEngine();
+      sounds.stopTakeoffSequence();
+    }
+  }, [isInInitialLanding]);
+
+  // Subscribe to changes in canvas background settings from admin
+  useEffect(() => {
+    const unsubscribe = subscribeToCanvasBackground((newConfig) => {
+      setCanvasBgConfig(newConfig);
+      // Immediately pick a background when saved/applied
+      if (newConfig.enabled) {
+        const isVideo = newConfig.bgType === 'video';
+        if (isVideo && newConfig.videos && newConfig.videos.length > 0) {
+          setActiveCanvasBgVideo(getRandomBackgroundVideo(newConfig));
+          setActiveCanvasBgImage('');
+        } else if (!isVideo && newConfig.images && newConfig.images.length > 0) {
+          setActiveCanvasBgImage(getRandomBackgroundImage(newConfig));
+          setActiveCanvasBgVideo('');
+        } else {
+          setActiveCanvasBgImage('');
+          setActiveCanvasBgVideo('');
+        }
+      } else {
+        setActiveCanvasBgImage('');
+        setActiveCanvasBgVideo('');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Randomize background image/video at the start of each round (when status changes to WAITING)
+  useEffect(() => {
+    if (canvasBgConfig.enabled) {
+      const isVideo = canvasBgConfig.bgType === 'video';
+      if (status === GameStatus.WAITING || (!activeCanvasBgImage && !activeCanvasBgVideo)) {
+        if (isVideo && canvasBgConfig.videos && canvasBgConfig.videos.length > 0) {
+          setActiveCanvasBgVideo(getRandomBackgroundVideo(canvasBgConfig));
+          setActiveCanvasBgImage('');
+        } else if (!isVideo && canvasBgConfig.images && canvasBgConfig.images.length > 0) {
+          setActiveCanvasBgImage(getRandomBackgroundImage(canvasBgConfig));
+          setActiveCanvasBgVideo('');
+        }
+      }
+    } else {
+      setActiveCanvasBgImage('');
+      setActiveCanvasBgVideo('');
+    }
+  }, [status, canvasBgConfig]);
   const [unlockedSkins, setUnlockedSkins] = useState<string[]>(() => {
     const saved = localStorage.getItem('unlocked_skins_aerofla');
     const parsedSkins = saved ? JSON.parse(saved) : ['aerobrasil'];
@@ -483,6 +683,7 @@ const App: React.FC = () => {
           };
         } catch (dbErr) {
           console.error("Firestore user setup failed, transitioning to offline fallback:", dbErr);
+          setIsOfflineFallback(true);
           setBalance(1000.00);
         }
       } else {
@@ -525,7 +726,7 @@ const App: React.FC = () => {
     const handleAppInstalled = () => {
       setIsInstallable(false);
       setDeferredPrompt(null);
-      handleAddNotification("App Instalado!", "Muito obrigado por instalar o aplicativo AeroFLA!", "success");
+      handleAddNotification("App Instalado!", "Muito obrigado por instalar o aplicativo Aerofantasy!", "success");
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -697,13 +898,24 @@ const App: React.FC = () => {
   }, [isAdminUser]);
 
   // Other
-  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([{ id: 'n1', title: 'Bem-vindo ao AERObet!', message: 'Complete missões diárias para ganhar voos grátis.', type: 'system', timestamp: Date.now(), read: false }]);
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([{ id: 'n1', title: 'Bem-vindo ao AEROgame!', message: 'Complete missões diárias para ganhar voos grátis.', type: 'system', timestamp: Date.now(), read: false }]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [trackedMissionId, setTrackedMissionId] = useState<string | null>(null);
+interface CashoutNotificationItem {
+  id: string;
+  amount: number;
+  betAmount: number;
+  multiplier: number;
+  profit: number;
+  isFreeFlight?: boolean;
+  isAerocoin?: boolean;
+  slot?: 1 | 2;
+}
+
   const [usersDb, setUsersDb] = useState(MOCK_USERS_INITIAL);
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Transaction[]>([]); 
   const [isUserBusy, setIsUserBusy] = useState(false);
-  const [cashoutNotifications, setCashoutNotifications] = useState<{id: string, amount: number}[]>([]);
+  const [cashoutNotifications, setCashoutNotifications] = useState<CashoutNotificationItem[]>([]);
   const [depositNotifications, setDepositNotifications] = useState<{id: string, amount: number}[]>([]);
 
   // Derived
@@ -745,9 +957,10 @@ const App: React.FC = () => {
   const handleLoginSuccess = (userName: string) => {
       setCurrentUsername(userName);
       setIsAuthenticated(true);
-      setShowLanding(false); // Esconde a landing
+      setShowLanding(false);
       setShowAuthModal(false);
-      handleAddNotification("Login", `Bem-vindo de volta, ${userName}!`, "success");
+      setIsInInitialLanding(true); // Exibe o portal oficial de seleção de modo logo após o login!
+      handleAddNotification("Login", `Bem-vindo a bordo, ${userName}! Escolha seu modo de voo no portal.`, "success");
       
       const guestRaw = localStorage.getItem('guest_user');
       if (guestRaw && !user) {
@@ -755,6 +968,86 @@ const App: React.FC = () => {
           const savedGuestBal = localStorage.getItem('guest_balance');
           setBalance(savedGuestBal ? parseFloat(savedGuestBal) : 1000.00);
       }
+  };
+
+  const handleLogout = async () => {
+      try {
+          await logout();
+      } catch (e) {
+          console.error("Logout error", e);
+      }
+      localStorage.removeItem('guest_user');
+      localStorage.removeItem('guest_balance');
+      localStorage.removeItem('aerobet_auth');
+      setUser(null);
+      setIsAuthenticated(false);
+      setShowAuthModal(true);
+      setIsInInitialLanding(true);
+      handleAddNotification("Sessão Encerrada", "Você saiu da sua conta com sucesso.", "info");
+  };
+
+  const handleSwitchMode = (targetMode?: string) => {
+      setIsProfileModalOpen(false);
+      setIsMenuOpen(false);
+      
+      const executeSwitch = () => {
+          let nextCategory: string;
+          if (targetMode) {
+              nextCategory = targetMode === 'aerogame' ? 'aerobet' : targetMode;
+          } else if (activeEventId || activeCategory === 'aerofantasy') {
+              nextCategory = 'aerobet';
+          } else {
+              nextCategory = 'aerofantasy';
+          }
+
+          if (nextCategory === 'aerobet') {
+              setActiveEventId(null);
+              setActiveLeagueType(null);
+              setAerocoinBalance(0);
+              setFantasyFlightsLeft(null);
+              setUserFantasyScore(0);
+              setUserFantasyFlightsUsed(0);
+              setUserFantasyMaxMult(0);
+          } else if (nextCategory === 'aerofantasy') {
+              // Garante navegação direta para a tela de INÍCIO do AeroFantasy
+              setFantasyTargetView('overview');
+          }
+
+          setActiveCategory(nextCategory as any);
+          setIsInInitialLanding(false);
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+          const rootEl = document.getElementById('root');
+          if (rootEl) rootEl.scrollTop = 0;
+          handleAddNotification(
+            nextCategory === 'aerofantasy' ? 'Modo AeroFantasy' : 'Modo AeroGame',
+            nextCategory === 'aerofantasy' ? 'Você alternou para o modo de Torneios e Ligas AeroFantasy.' : 'Você alternou para a Sala de Voo Clássico com Dinheiro Real.',
+            'info'
+          );
+      };
+
+      if (activeCabine) {
+          setPendingNavigationAction(() => executeSwitch);
+          return;
+      }
+      executeSwitch();
+  };
+
+  const handleSwitchProfile = async () => {
+      setIsProfileModalOpen(false);
+      setIsMenuOpen(false);
+      try {
+          await logout();
+      } catch (e) {
+          console.error("Switch profile error", e);
+      }
+      localStorage.removeItem('guest_user');
+      localStorage.removeItem('guest_balance');
+      localStorage.removeItem('aerobet_auth');
+      setUser(null);
+      setIsAuthenticated(false);
+      setShowAuthModal(true);
   };
 
   // --- ADMIN HANDLERS ---
@@ -771,10 +1064,12 @@ const App: React.FC = () => {
       handleAddNotification("Saque Rejeitado", `O saque ${id.slice(0,8)} foi estornado.`, "warning");
   };
   const handleAdminUpdateUserBalance = async (userId: string, newBalance: number) => {
-      try {
-        await updateDoc(doc(db, 'users', userId), { balance: newBalance });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
+      if (!isOfflineFallback) {
+        try {
+          await updateDoc(doc(db, 'users', userId), { balance: newBalance });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
+        }
       }
       setUsersDb(prev => prev.map(u => u.uid === userId ? { ...u, balance: newBalance } : u));
   };
@@ -782,10 +1077,12 @@ const App: React.FC = () => {
       const user = usersDb.find(u => u.uid === userId);
       if (!user) return;
       const newStatus = user.status === 'active' ? 'banned' : 'active';
-      try {
-        await updateDoc(doc(db, 'users', userId), { status: newStatus });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
+      if (!isOfflineFallback) {
+        try {
+          await updateDoc(doc(db, 'users', userId), { status: newStatus });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
+        }
       }
       setUsersDb(prev => prev.map(u => u.uid === userId ? { ...u, status: newStatus } : u));
   };
@@ -807,7 +1104,7 @@ const App: React.FC = () => {
 
   const handleJoinClube = () => {
       setUserStats(prev => ({ ...prev, clubeMember: true, clubeFlightsCount: 0, clubeCycleStartDate: Date.now() }));
-      handleAddNotification("Clube Aerobet", "Bem-vindo ao Clube! Comece a voar para ganhar prêmios.", "success");
+      handleAddNotification("Clube AeroGame", "Bem-vindo ao Clube! Comece a voar para ganhar prêmios.", "success");
   };
 
   const handlePlaceBet = async (slot: 1 | 2, amount: number, useFreeBet: boolean) => {
@@ -821,14 +1118,42 @@ const App: React.FC = () => {
           return;
       }
 
-      let currentAvailableBalance = balance;
+      let currentAvailableBalance = activeCabine ? activeCabine.currentBalance : balance;
       if (!useFreeBet && !activeEventId) {
-          if (slot !== 1 && nextRoundBet1 && !nextRoundBet1.isFreeFlight) currentAvailableBalance -= nextRoundBet1.amount;
-          if (slot !== 2 && nextRoundBet2 && !nextRoundBet2.isFreeFlight) currentAvailableBalance -= nextRoundBet2.amount;
+          if (activeCabine) {
+              if (activeCabine.userRole === 'pilot' && slot !== 1) {
+                  handleAddNotification("Slot Reservado", "No Modo Cabine, você opera exclusivamente no Slot 1 como Piloto.", "warning");
+                  return;
+              }
+              if (activeCabine.userRole === 'copilot' && slot !== 2) {
+                  handleAddNotification("Slot Reservado", "No Modo Cabine, você opera exclusivamente no Slot 2 como Copiloto.", "warning");
+                  return;
+              }
+              if (slot === 1 && nextRoundBet1) currentAvailableBalance -= nextRoundBet1.amount;
+              if (slot === 2 && nextRoundBet2) currentAvailableBalance -= nextRoundBet2.amount;
+          } else {
+              if (slot !== 1 && nextRoundBet1 && !nextRoundBet1.isFreeFlight) currentAvailableBalance -= nextRoundBet1.amount;
+              if (slot !== 2 && nextRoundBet2 && !nextRoundBet2.isFreeFlight) currentAvailableBalance -= nextRoundBet2.amount;
+          }
       }
 
       if (activeEventId) {
-          // ... AeroFantasy logic
+          if (activeLeagueType === 'multiplier') {
+              if (fantasyFlightsLeft !== null && fantasyFlightsLeft <= 0) {
+                  handleAddNotification("Cota Esgotada", "Você já utilizou sua cota de voos nesta sala.", "warning");
+                  return;
+              }
+          } else if (activeLeagueType === 'aerocoin') {
+              if (aerocoinBalance < amount) {
+                  handleAddNotification("Aerocoins Insuficientes", "Você não tem moedas suficientes para esta aposta.", "warning");
+                  return;
+              }
+          }
+      } else if (activeCabine) {
+          if (currentAvailableBalance < amount) {
+              handleAddNotification("Banca da Cabine Insuficiente", `A banca compartilhada da cabine não possui R$ ${amount.toFixed(2)} disponíveis para esta aposta.`, "warning");
+              return;
+          }
       } else {
           if (useFreeBet && userStats.freeFlights <= 0) return;
           if (!useFreeBet && currentAvailableBalance < amount) {
@@ -850,7 +1175,7 @@ const App: React.FC = () => {
       else setNextRoundBet2(betInfo as any);
 
       // --- FIRESTORE PERSISTENCE ---
-      if (!isGuest) {
+      if (!isGuest && !isOfflineFallback) {
         try {
           const betDoc = await addDoc(collection(db, 'bets'), {
             uid: user.uid,
@@ -879,7 +1204,7 @@ const App: React.FC = () => {
         }
       }
 
-      // Lógica do Clube Aerobet
+      // Lógica do Clube AeroGame
       if (userStats.clubeMember && !useFreeBet && !activeEventId && amount >= clubeConfig.minBetAmount) {
           const newCount = userStats.clubeFlightsCount + 1;
           if (newCount >= clubeConfig.targetFlights) {
@@ -888,8 +1213,8 @@ const App: React.FC = () => {
                   clubeFlightsCount: 0, 
                   freeFlights: prev.freeFlights + clubeConfig.rewardFlights 
               }));
-              handleAddNotification("Clube Aerobet", `Parabéns! Você completou o ciclo e ganhou ${clubeConfig.rewardFlights} voos grátis!`, "reward");
-              setFreeFlightHistory(prev => [{ id: `ff-${Date.now()}`, type: 'credit', amount: clubeConfig.rewardFlights, source: 'Clube Aerobet', date: Date.now() }, ...prev]);
+              handleAddNotification("Clube AeroGame", `Parabéns! Você completou o ciclo e ganhou ${clubeConfig.rewardFlights} voos grátis!`, "reward");
+              setFreeFlightHistory(prev => [{ id: `ff-${Date.now()}`, type: 'credit', amount: clubeConfig.rewardFlights, source: 'Clube AeroGame', date: Date.now() }, ...prev]);
           } else {
               setUserStats(prev => ({ ...prev, clubeFlightsCount: newCount }));
           }
@@ -904,7 +1229,7 @@ const App: React.FC = () => {
       else setNextRoundBet2(null);
 
       // Firestore cleanup
-      if (user && !isGuest) {
+      if (user && !isGuest && !isOfflineFallback) {
           try {
               // Delete bet doc
               if (bet.firestoreId && !bet.firestoreId.startsWith('temp-')) {
@@ -978,7 +1303,15 @@ const App: React.FC = () => {
       sounds.playCashout();
 
       // Atualizar o saldo local de forma ágil e sem latência perceptível
-      if (activeEventId) {
+      if (activeCabine) {
+          const nextCabBal = Math.round((activeCabine.currentBalance + optimisticPayout) * 100) / 100;
+          setActiveCabine(prev => prev ? { 
+            ...prev, 
+            currentBalance: nextCabBal, 
+            profit: Math.round((nextCabBal - prev.initialBalance) * 100) / 100 
+          } : null);
+          updateCabineBalance(activeCabine.id, nextCabBal, optimisticPayout - bet.amount);
+      } else if (activeEventId) {
           if (activeLeagueType !== 'multiplier') {
               setAerocoinBalance(prev => prev + optimisticPayout);
           }
@@ -986,9 +1319,20 @@ const App: React.FC = () => {
           setBalance(prev => prev + optimisticPayout);
       }
       
-      // Expor balão de feedback flutuante instantaneamente
-      setCashoutNotifications(prev => [...prev, { id: 'opt-' + Date.now().toString() + Math.random(), amount: optimisticPayout }]);
-      setTimeout(() => setCashoutNotifications(prev => prev.slice(1)), 3000);
+      // Expor informativo rico e profissional de saque instantaneamente
+      const notifId = 'opt-' + Date.now().toString() + '-' + Math.random().toString(36).substring(2, 7);
+      const newCashoutNotif: CashoutNotificationItem = {
+        id: notifId,
+        amount: optimisticPayout,
+        betAmount: bet.amount,
+        multiplier: clickMult,
+        profit: optimisticPayout - (bet.isFreeFlight ? 0 : bet.amount),
+        isFreeFlight: !!bet.isFreeFlight,
+        isAerocoin: !!activeEventId && activeLeagueType !== 'multiplier',
+        slot
+      };
+      setCashoutNotifications(prev => [...prev, newCashoutNotif]);
+      setTimeout(() => setCashoutNotifications(prev => prev.filter(n => n.id !== notifId)), 4000);
 
       try {
         // --- VALIDAÇÃO DE CORRIDA E CRASH AUTORITATIVA NO SERVIDOR (RODA EM PARALELO) ---
@@ -996,6 +1340,8 @@ const App: React.FC = () => {
 
         // Se o servidor desautorizou a ação de saque (quando o avião já deu crash no mesmo instante)
         if (!validation.success) {
+            // Remove a notificação se o servidor recusar
+            setCashoutNotifications(prev => prev.filter(n => n.id !== notifId));
             // Reverter saldo adicionado otimisticamente
             if (activeEventId) {
                 if (activeLeagueType !== 'multiplier') {
@@ -1036,7 +1382,7 @@ const App: React.FC = () => {
               return item;
             }));
 
-            if (user && bet.firestoreId && !bet.firestoreId.startsWith('temp-') && !isGuest) {
+            if (user && bet.firestoreId && !bet.firestoreId.startsWith('temp-') && !isGuest && !isOfflineFallback) {
                 try {
                     await updateDoc(doc(db, 'bets', bet.firestoreId), {
                         status: 'lost',
@@ -1065,6 +1411,13 @@ const App: React.FC = () => {
         // Se o servidor validou com sucesso, pegamos o multiplicador final real homologado pelo servidor
         const confirmedMult = validation.multiplier || clickMult;
         const finalPayout = bet.amount * confirmedMult;
+
+        // Se estiver em liga AeroFantasy de multiplicador, soma pontos e atualiza o melhor saque
+        if (activeEventId && activeLeagueType === 'multiplier') {
+            const pts = Math.round(confirmedMult * 10) / 10;
+            setUserFantasyScore(prev => Math.round((prev + pts) * 10) / 10);
+            setUserFantasyMaxMult(prev => Math.max(prev, confirmedMult));
+        }
 
         // Atualiza o histórico local com o valor final confirmado pelo servidor
         setMyHistory(prev => prev.map(item => {
@@ -1169,7 +1522,7 @@ const App: React.FC = () => {
         }
 
         // Sincronização definitiva com banco de dados remoto
-        if (user && !isGuest) {
+        if (user && !isGuest && !isOfflineFallback) {
           try {
             const userDocRef = doc(db, 'users', user.uid);
             const updates: any = {
@@ -1195,7 +1548,7 @@ const App: React.FC = () => {
           } catch (err) {
             handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
           }
-        } else if (isGuest) {
+        } else if (isGuest || isOfflineFallback) {
             setUserStats(prev => ({
                 ...prev,
                 totalWins: (prev.totalWins || 0) + 1,
@@ -1322,7 +1675,11 @@ const App: React.FC = () => {
       setActiveLeagueType(null);
       setAerocoinBalance(0);
       setFantasyFlightsLeft(null);
-      handleAddNotification("Modo Real", "Você voltou para o jogo principal.", "info");
+      setUserFantasyScore(0);
+      setUserFantasyFlightsUsed(0);
+      setUserFantasyMaxMult(0);
+      setActiveCategory('aerobet');
+      handleAddNotification("AeroGame Clássico", "Você saiu da competição e voltou para o modo de voo normal com saldo real.", "info");
   };
 
   const handleWheelPrize = (type: 'balance' | 'flight', amount: number) => {
@@ -1493,14 +1850,20 @@ const App: React.FC = () => {
 
   // --- GAME LOGIC EFFECT ---
   useEffect(() => {
+      const isSoundAllowed = !isInInitialLanding && activeCategory === 'aerobet';
       if (status === GameStatus.WAITING && lastStatusRef.current !== GameStatus.WAITING) {
           // Reset current round bets when waiting for next round
           setBet1(null);
           setBet2(null);
-          sounds.playTakeoffSequence();
-      } else if (status === GameStatus.FLYING && lastStatusRef.current !== GameStatus.FLYING) {
+          sounds.stopEngine();
           sounds.stopTakeoffSequence();
-          sounds.playTakeoff();
+      } else if (status === GameStatus.FLYING && lastStatusRef.current !== GameStatus.FLYING) {
+          if (isSoundAllowed) {
+            sounds.stopTakeoffSequence();
+            sounds.playTakeoff();
+          } else {
+            sounds.stopTakeoffSequence();
+          }
           const processBet = async (bet: any, setter: any, slot: number) => {
               if (bet) {
                   const newBet: Bet = {
@@ -1515,8 +1878,23 @@ const App: React.FC = () => {
                   if (slot === 1) activeBetsRef.current.bet1 = true;
                   else if (slot === 2) activeBetsRef.current.bet2 = true;
                   
-                  // Deduct balance ONLY when round starts
-                  if (user && !activeEventId) {
+                  // Deduct flight when round starts for either Slot 1 or Slot 2 in AeroFantasy
+                  if (activeEventId && activeLeagueType === 'multiplier' && fantasyFlightsLeft !== null) {
+                      setFantasyFlightsLeft(prev => {
+                          const next = prev !== null ? Math.max(0, prev - 1) : 0;
+                          if (next === 0) {
+                              handleAddNotification("Competição Concluída!", "Você utilizou sua cota de voos na sala. Confira sua posição no ranking!", "reward");
+                          }
+                          return next;
+                      });
+                      setUserFantasyFlightsUsed(prev => prev + 1);
+                  }
+
+                  if (activeCabine) {
+                      const nextCabBal = Math.max(0, Math.round((activeCabine.currentBalance - bet.amount) * 100) / 100);
+                      setActiveCabine(prev => prev ? { ...prev, currentBalance: nextCabBal } : null);
+                      updateCabineBalance(activeCabine.id, nextCabBal);
+                  } else if (user && !activeEventId) {
                       const userDocRef = doc(db, 'users', user.uid);
                       const deduction = bet.isFreeFlight ? { freeFlights: increment(-1) } : { balance: increment(-bet.amount) };
                       
@@ -1581,6 +1959,23 @@ const App: React.FC = () => {
               processBet(nextRoundBet2, setBet2, 2); 
               setNextRoundBet2(null); 
           }
+
+          // Aposta cooperativa do parceiro de cabine
+          if (activeCabine && (activeCabine.copilotName || activeCabine.userRole === 'copilot')) {
+              const currentCabBal = activeCabine.currentBalance;
+              if (currentCabBal >= 10) {
+                  const partnerAmt = Math.min(Math.max(5, Math.round(currentCabBal * 0.08)), 50);
+                  const targetMult = parseFloat((1.35 + Math.random() * 1.8).toFixed(2));
+                  setSimulatedPartnerBet({
+                      amount: partnerAmt,
+                      targetMult,
+                      cashedOut: false
+                  });
+                  const nextCabBal = Math.max(0, Math.round((currentCabBal - partnerAmt) * 100) / 100);
+                  setActiveCabine(prev => prev ? { ...prev, currentBalance: nextCabBal } : null);
+                  updateCabineBalance(activeCabine.id, nextCabBal);
+              }
+          }
           
           // Increment total rounds played in Firestore
           if (user && (nextRoundBet1 || nextRoundBet2) && !activeEventId) {
@@ -1594,8 +1989,9 @@ const App: React.FC = () => {
               }
           }
       } else if (status === GameStatus.CRASHED && lastStatusRef.current !== GameStatus.CRASHED) {
+          sounds.stopEngine();
           sounds.stopTakeoffSequence();
-          sounds.playFlyAway();
+          sounds.playCrash();
           const handleResult = async (bet: Bet | null, setter: any, slotIndicator: 1|2) => { 
               if (bet && bet.status === 'active' && activeBetsRef.current[`bet${slotIndicator}` as 'bet1'|'bet2']) {
                   activeBetsRef.current[`bet${slotIndicator}` as 'bet1'|'bet2'] = false;
@@ -1644,7 +2040,237 @@ const App: React.FC = () => {
       }
 
       lastStatusRef.current = status;
-  }, [status, nextRoundBet1, nextRoundBet2, currentUsername]);
+  }, [status, nextRoundBet1, nextRoundBet2, currentUsername, isInInitialLanding, activeCategory]);
+
+  // Garante que ao entrar em qualquer modo (AeroGame, AeroFantasy, etc.) a tela inicie no topo (no gráfico do jogo)
+  useEffect(() => {
+    if (!isInInitialLanding) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const rootEl = document.getElementById('root');
+      if (rootEl) rootEl.scrollTop = 0;
+    }
+  }, [isInInitialLanding, activeCategory]);
+
+  // Lógica de Saque e Finalização da aposta cooperativa do parceiro de cabine
+  useEffect(() => {
+    if (status === GameStatus.FLYING && simulatedPartnerBet && !simulatedPartnerBet.cashedOut) {
+      const target = simulatedPartnerBet.targetMult || 2.0;
+      if (multiplier >= target) {
+        const winAmt = Math.round((simulatedPartnerBet.amount * target) * 100) / 100;
+        const profit = Math.round((winAmt - simulatedPartnerBet.amount) * 100) / 100;
+        setSimulatedPartnerBet(prev => prev ? {
+          ...prev,
+          cashedOut: true,
+          cashoutAt: target,
+          profit
+        } : null);
+
+        if (activeCabine) {
+          const nextBal = Math.round((activeCabine.currentBalance + winAmt) * 100) / 100;
+          setActiveCabine(prev => prev ? { 
+            ...prev, 
+            currentBalance: nextBal, 
+            profit: Math.round((nextBal - prev.initialBalance) * 100) / 100 
+          } : null);
+          updateCabineBalance(activeCabine.id, nextBal, profit);
+        }
+      }
+    } else if (status === GameStatus.WAITING) {
+      setSimulatedPartnerBet(null);
+    }
+  }, [status, multiplier, simulatedPartnerBet, activeCabine]);
+
+  const handleCabineStarted = async (newCabine: CabineSession) => {
+    const share = newCabine.totalBankroll / 2;
+    // Deduct 50% from user's personal wallet
+    setBalance(prev => Math.max(0, Math.round((prev - share) * 100) / 100));
+    if (user && !isGuest) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          balance: increment(-share)
+        });
+      } catch (e) {
+        console.warn('Error deducting cabine share:', e);
+      }
+    }
+    setActiveCabine(newCabine);
+    saveActiveCabineToStorage(newCabine);
+    setIsInInitialLanding(false);
+    setActiveCategory('aerobet');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    handleAddNotification(
+      "Cabine Ativada!",
+      `Você entrou na ${newCabine.name}! Aporte de R$ ${share.toFixed(2)} (50%) realizado da sua carteira para a banca de R$ ${newCabine.totalBankroll.toFixed(2)}. Bom voo!`,
+      "success"
+    );
+  };
+
+  const handleConfirmCloseCabine = async () => {
+    if (!activeCabine) return;
+    const finalBal = activeCabine.currentBalance;
+    const sharePerPilot = Math.max(0, Math.round((finalBal / 2) * 100) / 100);
+
+    // Credit 50% of the final balance back to user's wallet
+    setBalance(prev => Math.round((prev + sharePerPilot) * 100) / 100);
+    if (user && !isGuest) {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          balance: increment(sharePerPilot)
+        });
+      } catch (e) {
+        console.warn('Error crediting cabine share back:', e);
+      }
+    }
+
+    await closeCabineSession(activeCabine.id);
+    setActiveCabine(null);
+    saveActiveCabineToStorage(null);
+    setIsCabineCloseModalOpen(false);
+
+    handleAddNotification(
+      "Cabine Finalizada (50/50)",
+      `Operação encerrada! Da banca final de R$ ${finalBal.toFixed(2)}, 50% (R$ ${sharePerPilot.toFixed(2)}) foram creditados na sua carteira.`,
+      "reward"
+    );
+  };
+
+  const handleConnectSimulatedCopilot = () => {
+    if (!activeCabine) return;
+    const updated: CabineSession = {
+      ...activeCabine,
+      copilotId: 'sim-copilot-fox',
+      copilotName: 'Copiloto Fox-01 (IA)',
+      status: 'active'
+    };
+    setActiveCabine(updated);
+    saveActiveCabineToStorage(updated);
+    handleAddNotification("Copiloto Conectado!", "Copiloto Fox-01 assumiu o Slot 2 da cabine! Operação conjunta iniciada com sucesso.", "success");
+  };
+
+  // Sincroniza mensagens do chat privado e rádio da cabine ativa
+  useEffect(() => {
+    if (!activeCabine) {
+      setCabineMessages([]);
+      cabineRadio.destroy();
+      setIsRadioOn(false);
+      setIsTalking(false);
+      setIsPartnerTalking(false);
+      setIsHandsFree(false);
+      return;
+    }
+
+    const unsubMessages = listenToCabineMessages(activeCabine.id, (msgs) => {
+      setCabineMessages(msgs);
+    });
+
+    cabineRadio.initRadio(activeCabine.id, activeCabine.userRole || 'pilot', {
+      onVolume: (vol) => setRadioVolume(vol),
+      onPartnerTalking: (talking) => setIsPartnerTalking(talking)
+    });
+
+    return () => {
+      unsubMessages();
+      cabineRadio.destroy();
+    };
+  }, [activeCabine?.id]);
+
+  const handleToggleRadio = async () => {
+    if (isRadioOn) {
+      cabineRadio.destroy();
+      setIsRadioOn(false);
+      setIsTalking(false);
+      setIsPartnerTalking(false);
+      setIsHandsFree(false);
+      handleAddNotification("Rádio Intercom", "Rádio da cabine desconectado.", "info");
+    } else {
+      const ok = await cabineRadio.enableMicrophone();
+      if (ok) {
+        setIsRadioOn(true);
+        handleAddNotification("Rádio VHF 121.5 MHz", "Microfone ligado no intercom da cabine! Fale ao vivo com seu copiloto.", "success");
+      } else {
+        handleAddNotification("Acesso ao Microfone", "Por favor, autorize o microfone no navegador para falar no rádio da cabine.", "warning");
+      }
+    }
+  };
+
+  const handleToggleMicMute = () => {
+    const muted = cabineRadio.toggleMute();
+    setIsMicMuted(muted);
+  };
+
+  const handleToggleHandsFree = () => {
+    if (isHandsFree) {
+      cabineRadio.setTransmitting(false);
+      setIsTalking(false);
+      setIsHandsFree(false);
+    } else {
+      cabineRadio.setTransmitting(true);
+      setIsTalking(true);
+      setIsHandsFree(true);
+    }
+  };
+
+  const handleStartTalking = () => {
+    if (isHandsFree) return; // Se em mãos livres, já está transmitindo continuamente
+    try {
+      window.getSelection()?.removeAllRanges();
+    } catch (e) {}
+    cabineRadio.setTransmitting(true);
+    setIsTalking(true);
+  };
+
+  const handleStopTalking = () => {
+    if (isHandsFree) return; // Não silenciar no mouseUp se estiver em mãos livres
+    cabineRadio.setTransmitting(false);
+    setIsTalking(false);
+  };
+
+  const handleSendCabineMessage = async (text: string) => {
+    if (!activeCabine || !text.trim()) return;
+    const role = activeCabine.userRole || 'pilot';
+    const senderName = currentUsername || (role === 'pilot' ? activeCabine.pilotName : (activeCabine.copilotName || 'Copiloto'));
+
+    const localMsg: CabineMessage = {
+      id: `local-${Date.now()}`,
+      cabineId: activeCabine.id,
+      sender: senderName,
+      role,
+      text: text.trim(),
+      timestamp: Date.now()
+    };
+    setCabineMessages(prev => [...prev, localMsg]);
+
+    await sendCabineMessage({
+      cabineId: activeCabine.id,
+      sender: senderName,
+      role,
+      text: text.trim()
+    });
+
+    if (activeCabine.copilotId?.startsWith('sim-')) {
+      setTimeout(() => {
+        const responses = [
+          "Copiado Comandante! Monitorando radar e velocidade de subida.",
+          "Roger Piloto! Pronto para ejetar na hora certa.",
+          "Perfeito parceiro, vamos buscar o multiplicador alto juntos!",
+          "Afirmativo! Banca compartilhada alinhada."
+        ];
+        const resp = responses[Math.floor(Math.random() * responses.length)];
+        cabineRadio.triggerSimulatedCopilotResponse(resp);
+        const copilotMsg: CabineMessage = {
+          id: `sim-${Date.now()}`,
+          cabineId: activeCabine.id,
+          sender: activeCabine.copilotName || 'Copiloto Fox-01 (IA)',
+          role: 'copilot',
+          text: resp,
+          timestamp: Date.now()
+        };
+        setCabineMessages(p => [...p, copilotMsg]);
+      }, 1100);
+    }
+  };
 
   if (isAeroFantasyAdminOpen) {
       return <AeroFantasyAdmin 
@@ -1673,6 +2299,12 @@ const App: React.FC = () => {
       clubeConfig={clubeConfig}
       onUpdateClubeConfig={setClubeConfig}
       onOpenAeroFantasyAdmin={() => { setIsAdminOpen(false); setIsAeroFantasyAdminOpen(true); }}
+      onPreviewLanding={() => { setIsAdminOpen(false); setIsInInitialLanding(true); }}
+      canvasBgConfig={canvasBgConfig}
+      onUpdateCanvasBgConfig={(newConfig) => {
+        setCanvasBgConfig(newConfig);
+        saveCanvasBackgroundConfig(newConfig);
+      }}
       />;
   
   if (isCurrentUserBanned) return <BannedScreen />;
@@ -1695,12 +2327,38 @@ const App: React.FC = () => {
       );
   }
 
-  const currentAvailableBalance = balance - 
-      (nextRoundBet1 && !nextRoundBet1.isFreeFlight ? nextRoundBet1.amount : 0) - 
-      (nextRoundBet2 && !nextRoundBet2.isFreeFlight ? nextRoundBet2.amount : 0);
+  const currentAvailableBalance = activeCabine
+    ? Math.max(0, activeCabine.currentBalance - (activeCabine.userRole === 'pilot' 
+        ? (nextRoundBet1 && !nextRoundBet1.isFreeFlight ? nextRoundBet1.amount : 0) 
+        : (nextRoundBet2 && !nextRoundBet2.isFreeFlight ? nextRoundBet2.amount : 0)))
+    : balance - 
+        (nextRoundBet1 && !nextRoundBet1.isFreeFlight ? nextRoundBet1.amount : 0) - 
+        (nextRoundBet2 && !nextRoundBet2.isFreeFlight ? nextRoundBet2.amount : 0);
 
   return (
     <div className="min-h-screen lg:h-screen bg-black text-white p-1 md:p-1.5 flex flex-col gap-1 max-w-[1600px] mx-auto overflow-x-hidden lg:overflow-hidden font-sans relative">
+      {isOfflineFallback && (
+        <div className="bg-red-950/90 border border-red-500/50 p-3 mx-2 mt-2 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 text-white text-xs z-50 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
+            <div className="text-left">
+              <p className="font-bold uppercase tracking-wider text-red-400 text-[11px]">Modo de Simulação Ativo (Limite Firebase Excedido)</p>
+              <p className="text-white/70 text-[11px] lg:text-xs">O limite de consultas diárias gratuitas do banco de dados excedeu. Você pode continuar jogando normalmente; o progresso será mantido off-line no navegador.</p>
+            </div>
+          </div>
+          <a
+            href="https://console.firebase.google.com/project/gen-lang-client-0814907760/firestore/databases/ai-studio-4e74ddd1-e192-457f-9aa0-db6efc77c25c/data?openUpgradeDialog=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-4 rounded-xl uppercase tracking-wider text-[10px] transition-colors shadow-lg"
+          >
+            Acessar Console & Fazer Upgrade
+          </a>
+        </div>
+      )}
       {isNotificationsOpen && <NotificationsModal onClose={() => setIsNotificationsOpen(false)} notifications={appNotifications} onMarkAllRead={handleMarkAllRead} onClearAll={handleClearNotifications} onNotificationClick={handleNotificationClick} />}
       
       <SideMenu 
@@ -1710,7 +2368,11 @@ const App: React.FC = () => {
         onOpenWallet={() => setIsWalletModalOpen(true)} 
         onOpenMissions={() => setIsMissionsModalOpen(true)} 
         onOpenEvents={() => setIsEventsModalOpen(true)} 
-        onOpenTournaments={() => { setIsMenuOpen(false); setActiveCategory('aerofantasy'); }} 
+        onOpenTournaments={() => {
+          const act = () => { setIsMenuOpen(false); setActiveCategory('aerofantasy'); setIsInInitialLanding(false); };
+          if (activeCabine) setPendingNavigationAction(() => act);
+          else act();
+        }} 
         onOpenRanking={() => setIsRankingModalOpen(true)} 
         onOpenHistory={() => setIsFullHistoryOpen(true)} 
         onOpenAchievements={() => setIsAchievementsModalOpen(true)} 
@@ -1727,8 +2389,82 @@ const App: React.FC = () => {
         onInstallPWA={handleInstallApp}
         showInstallButton={isInstallable}
         isAdminUser={isAdminUser}
+        onOpenPortal={() => {
+          const act = () => { setIsInInitialLanding(true); setIsMenuOpen(false); };
+          if (activeCabine) setPendingNavigationAction(() => act);
+          else act();
+        }}
+        onOpenStore={() => {
+          const act = () => { setActiveCategory('store'); setIsInInitialLanding(false); setIsMenuOpen(false); };
+          if (activeCabine) setPendingNavigationAction(() => act);
+          else act();
+        }}
+        onLogout={() => {
+          if (activeCabine) setPendingNavigationAction(() => handleLogout);
+          else handleLogout();
+        }}
+        onSwitchMode={handleSwitchMode}
+        onSwitchProfile={handleSwitchProfile}
+        currentMode={activeEventId || activeCategory === 'aerofantasy' ? 'aerofantasy' : 'aerogame'}
+        activeEventId={activeEventId}
+        onOpenCabine={() => { setIsMenuOpen(false); setIsCabineLobbyOpen(true); }}
       />
       
+      {/* --- MODAIS DO MODO CABINE (CO-OP) --- */}
+      {isCabineLobbyOpen && (
+        <CabineLobbyModal
+          onClose={() => setIsCabineLobbyOpen(false)}
+          userBalance={balance}
+          currentUsername={currentUsername}
+          onCabineStarted={handleCabineStarted}
+          onOpenDeposit={() => {
+            setIsCabineLobbyOpen(false);
+            setIsWalletModalOpen(true);
+          }}
+          activeCabine={activeCabine}
+          onExitCabine={handleConfirmCloseCabine}
+        />
+      )}
+
+      {isCabineChatOpen && activeCabine && (
+        <CabineChatDrawer
+          cabine={activeCabine}
+          currentUsername={currentUsername}
+          onClose={() => setIsCabineChatOpen(false)}
+        />
+      )}
+
+      {isCabineCloseModalOpen && activeCabine && (
+        <CabineCloseModal
+          cabine={activeCabine}
+          onClose={() => setIsCabineCloseModalOpen(false)}
+          onConfirmClose={handleConfirmCloseCabine}
+        />
+      )}
+
+      {pendingNavigationAction && activeCabine && (
+        <CabineExitConfirmationModal
+          cabine={activeCabine}
+          onCancel={() => setPendingNavigationAction(null)}
+          onConfirm={async () => {
+            await handleConfirmCloseCabine();
+            if (pendingNavigationAction) {
+              pendingNavigationAction();
+            }
+            setPendingNavigationAction(null);
+          }}
+        />
+      )}
+      
+      {isNotificationsOpen && (
+        <NotificationsModal 
+          onClose={() => setIsNotificationsOpen(false)} 
+          notifications={appNotifications} 
+          onMarkAllRead={handleMarkAllRead} 
+          onClearAll={handleClearNotifications} 
+          onNotificationClick={handleNotificationClick} 
+        />
+      )}
       {isMissionsModalOpen && <MissionsModal onClose={() => setIsMissionsModalOpen(false)} missions={missions} onClaim={claimMissionReward} onStart={handleStartMission} onTrack={handleTrackMission} lastDepositTime={userStats.lastDepositTime} isSubscribed={isSubscribed} onOpenDeposit={() => { setIsMissionsModalOpen(false); setIsWalletModalOpen(true); }} onOpenSubscription={() => { setIsMissionsModalOpen(false); setIsBankrollModalOpen(true); }} />}
       {isEventsModalOpen && <EventsModal onClose={() => setIsEventsModalOpen(false)} events={events} onJoinEvent={handleJoinEvent} />}
       {isRankingModalOpen && <RankingsModal onClose={() => setIsRankingModalOpen(false)} />}
@@ -1738,7 +2474,7 @@ const App: React.FC = () => {
       {isClubeModalOpen && <ClubeModal onClose={() => setIsClubeModalOpen(false)} stats={userStats} config={clubeConfig} onJoin={handleJoinClube} />}
       {isBankrollModalOpen && <BankrollManagerModal onClose={() => setIsBankrollModalOpen(false)} isSubscribed={isSubscribed} onSubscribe={(autoRenew) => handleSubscriptionPurchase(autoRenew)} balance={balance} stats={userStats} onUpdatePlan={handleUpdateBankrollPlan} onActivatePlan={handleActivatePlan} onDeletePlan={handleDeletePlan} onResetPlan={handleResetPlan} />}
       {isSubscriptionModalOpen && <SubscriptionModal onClose={() => setIsSubscriptionModalOpen(false)} stats={userStats} balance={balance} onSubscribe={(autoRenew) => handleSubscriptionPurchase(autoRenew)} onToggleAutoRenew={handleToggleAutoRenew} />}
-      {isProfileModalOpen && <ProfileModal onClose={() => setIsProfileModalOpen(false)} balance={balance} stats={userStats} transactions={transactions} username={currentUsername} userAvatar={userAvatar} onUpdateAvatar={handleUpdateAvatar} profile={userProfile} onUpdateProfile={handleUpdateProfile} isSubscribed={isSubscribed} onOpenSubscription={() => { setIsProfileModalOpen(false); setIsSubscriptionModalOpen(true); }} onOpenClube={() => { setIsProfileModalOpen(false); setIsClubeModalOpen(true); }} />}
+      {isProfileModalOpen && <ProfileModal onClose={() => setIsProfileModalOpen(false)} balance={balance} stats={userStats} transactions={transactions} username={currentUsername} userAvatar={userAvatar} onUpdateAvatar={handleUpdateAvatar} profile={userProfile} onUpdateProfile={handleUpdateProfile} isSubscribed={isSubscribed} onOpenSubscription={() => { setIsProfileModalOpen(false); setIsSubscriptionModalOpen(true); }} onOpenClube={() => { setIsProfileModalOpen(false); setIsClubeModalOpen(true); }} onLogout={handleLogout} onSwitchMode={handleSwitchMode} onSwitchProfile={handleSwitchProfile} />}
       {isWalletModalOpen && <WalletModal onClose={() => setIsWalletModalOpen(false)} onDepositConfirm={handleDepositConfirm} onWithdrawConfirm={handleWithdrawConfirm} balance={balance} userProfile={userProfile} depositConfigs={depositConfigs} userStats={userStats} />}
       {selectedHistory && <FairnessModal history={selectedHistory} onClose={() => setSelectedHistory(null)} />}
       {isFullHistoryOpen && <FullHistoryModal history={history} onClose={() => setIsFullHistoryOpen(false)} />}
@@ -1759,7 +2495,7 @@ const App: React.FC = () => {
 
             <div className="text-center mb-6">
               <div className="w-14 h-14 bg-gradient-to-br from-[#e51a31] to-red-600 rounded-2xl flex items-center justify-center font-black italic shadow-[0_0_20px_rgba(229,26,49,0.4)] text-3xl text-white mx-auto mb-3">A</div>
-              <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter">AeroFLA no iOS</h3>
+              <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter">Aerofantasy no iOS</h3>
               <p className="text-[10px] text-white/50 font-black uppercase tracking-widest mt-1">Siga os passos fáceis para instalar</p>
             </div>
 
@@ -1811,320 +2547,563 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-sm z-[100] pointer-events-none flex flex-col items-center gap-2">
-        {cashoutNotifications.map((notification) => (
-          <div key={notification.id} className="animate-cashout-toast bg-black/60 backdrop-blur-lg rounded-xl px-5 py-2.5 border border-[#d97d1b]/50 shadow-[0_0_20px_rgba(217,125,27,0.4)] flex items-center justify-between gap-6 pointer-events-auto min-w-[280px]">
-            <div className="flex flex-col"><span className="text-[10px] font-bold text-white/60 uppercase tracking-widest leading-none mb-1">Você Ganhou</span><span className="text-xl font-black italic text-[#d97d1b] leading-none">{notification.amount >= 1000 ? (notification.amount.toFixed(0) + ' pts') : ('R$ ' + notification.amount.toFixed(2))}</span></div>
-          </div>
-        ))}
-        {depositNotifications.map((notification) => (
-          <div key={notification.id} className="animate-cashout-toast bg-black/60 backdrop-blur-lg rounded-xl px-5 py-2.5 border border-[#28a745]/50 shadow-[0_0_20px_rgba(40,167,69,0.4)] flex items-center gap-4 pointer-events-auto">
-            <span className="text-xs font-bold text-white/60 uppercase tracking-widest">Depósito Recebido</span><span className="text-xl font-black italic text-[#28a745]">R$ {notification.amount.toFixed(2)}</span>
-          </div>
-        ))}
-      </div>
-
-      <TopBanner balance={balance} aerocoinBalance={aerocoinBalance} activeEventId={activeEventId} activeLeagueType={activeLeagueType} fantasyFlightsLeft={fantasyFlightsLeft} onExitEvent={handleExitEventMode} isMuted={isMuted} onToggleMute={() => setIsMuted(!isMuted)} nextRoundHash={nextRoundServerSeedHash} onShowFairness={handleShowFairness} onWalletClick={() => setIsWalletModalOpen(true)} onMenuClick={() => setIsMenuOpen(true)} onProfileClick={() => setIsProfileModalOpen(true)} onNotificationsClick={() => setIsNotificationsOpen(!isNotificationsOpen)} unreadNotifications={appNotifications.filter(n => !n.read).length} userAvatar={userAvatar} />
-
-      <div className="px-1 md:px-2 py-1">
-        <BannerCarousel 
-          banners={banners}
-          onOpenWallet={() => setIsWalletModalOpen(true)}
-          onOpenTournaments={() => setActiveCategory('aerofantasy')}
-          onOpenSubscription={() => setIsSubscriptionModalOpen(true)}
-        />
-      </div>
-
-      {isInstallable && showInstallBanner && (
-        <div className="mx-1 md:mx-2 mb-2 p-3 md:p-4 rounded-2xl bg-gradient-to-r from-[#e51a31]/20 via-[#101010]/95 to-[#e51a31]/10 border border-[#e51a31]/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_4px_25px_rgba(229,26,49,0.15)] animate-in slide-in-from-top-4 duration-300 relative overflow-hidden group shrink-0">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#e51a31]/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="flex items-center gap-3 relative z-10 w-full sm:w-auto">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#e51a31] to-red-600 flex flex-shrink-0 items-center justify-center font-black italic shadow-[0_0_15px_rgba(229,26,49,0.5)] text-white text-lg animate-bounce">
-              A
-            </div>
-            <div className="text-left font-sans">
-              <h3 className="text-xs font-black italic uppercase tracking-tight text-white flex flex-wrap items-center gap-1.5 leading-none">
-                AeroFLA como Aplicativo!
-                <span className="bg-[#e51a31] text-white text-[8px] font-black italic px-1.5 py-0.5 rounded uppercase animate-pulse shrink-0">MELHOR JOGABILIDADE</span>
-              </h3>
-              <p className="text-[10px] text-white/70 font-bold mt-1.5">
-                Instale agora para ter acesso instantâneo na tela inicial, desempenho máximo e jogar com 1-toque!
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 relative z-10 w-full sm:w-auto shrink-0 justify-end">
-            <button 
-              onClick={handleInstallApp}
-              className="px-4 py-2 bg-[#e51a31] hover:bg-[#ff1f3a] text-white rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(229,26,49,0.4)] active:scale-95 duration-100 cursor-pointer"
-            >
-              Instalar App
-            </button>
-            <button 
-              onClick={() => setShowInstallBanner(false)}
-              className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-wider transition-all duration-100 cursor-pointer"
-            >
-              Mais Tarde
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Category Navigation Bar */}
       {!isInInitialLanding && (
-        <div className="flex justify-center py-2 bg-black shrink-0 z-20 px-1 md:px-2">
-            <div className="bg-[#141516] p-1 rounded-2xl border border-white/5 flex gap-1 w-full max-w-xl shadow-2xl relative">
-                <button 
-                    disabled={isUserBusy} 
-                    onClick={() => {
-                        setActiveCategory('aerobet');
-                    }} 
-                    className={`flex-1 py-3 px-1 sm:px-3 rounded-xl text-center text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                        activeCategory === 'aerobet' 
-                          ? 'bg-[#e51a31] text-white shadow-lg shadow-[#e51a31]/20' 
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                    🚀 AERObet {activeEventId && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
-                </button>
-                
-                <button 
-                    disabled={isUserBusy} 
-                    onClick={() => setActiveCategory('aerofantasy')} 
-                    className={`flex-1 py-3 px-1 sm:px-3 rounded-xl text-center text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                        activeCategory === 'aerofantasy' 
-                          ? 'bg-[#34b1e2] text-white shadow-lg shadow-[#34b1e2]/20' 
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                    🏆 AeroFantasy
-                </button>
-                
-                <button 
-                    disabled={isUserBusy} 
-                    onClick={() => setActiveCategory('store')} 
-                    className={`flex-1 py-3 px-1 sm:px-3 rounded-xl text-center text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                        activeCategory === 'store' 
-                          ? 'bg-[#f59e0b] text-white shadow-lg shadow-[#f59e0b]/20' 
-                          : 'text-white/40 hover:text-white hover:bg-[#f59e0b]/5'
-                    }`}
-                >
-                    🛒 Loja
-                </button>
+        <>
+          <div className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 w-[94%] max-w-[390px] sm:max-w-[440px] z-[120] pointer-events-none flex flex-col items-center gap-2.5">
+            {cashoutNotifications.map((notification) => {
+              const formattedAmount = notification.isAerocoin || notification.amount >= 100000 
+                ? `${Math.round(notification.amount)} pts` 
+                : `R$ ${notification.amount.toFixed(2).replace('.', ',')}`;
+              
+              const formattedProfit = notification.isAerocoin || notification.profit >= 100000
+                ? `+${Math.round(notification.profit)} pts`
+                : `+R$ ${notification.profit.toFixed(2).replace('.', ',')}`;
 
-                <button 
-                    disabled={isUserBusy} 
-                    onClick={() => setActiveCategory('hangar')} 
-                    className={`flex-1 py-3 px-1 sm:px-3 rounded-xl text-center text-[10px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                        activeCategory === 'hangar' 
-                          ? 'bg-[#10b981] text-white shadow-lg shadow-[#10b981]/20' 
-                          : 'text-white/40 hover:text-white hover:bg-[#10b981]/5'
-                    }`}
+              const formattedBet = notification.isAerocoin 
+                ? `${Math.round(notification.betAmount)} pts` 
+                : `R$ ${notification.betAmount.toFixed(2).replace('.', ',')}`;
+
+              const altitudeAtCashout = Math.round(notification.multiplier * 1000);
+
+              return (
+                <div 
+                  key={notification.id} 
+                  className="animate-in zoom-in-95 slide-in-from-top-4 fade-in duration-300 w-full pointer-events-auto relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#050c18]/95 via-[#02060e]/95 to-[#000000]/98 backdrop-blur-2xl border border-cyan-500/40 shadow-[0_12px_45px_rgba(6,182,212,0.35)] border-l-4 border-l-cyan-400 p-3 sm:p-3.5 flex flex-col gap-2"
                 >
-                    🛸 Hangar
-                </button>
+                  {/* Glowing Top Shimmer Line */}
+                  <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse" />
+
+                  {/* Top Row: Icon, Status Tag & Multiplier */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-sky-400 flex items-center justify-center text-black shadow-[0_0_15px_rgba(6,182,212,0.8)] shrink-0 font-black">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-cyan-400 animate-pulse shadow-[0_0_6px_rgba(34,211,238,0.9)]" />
+                          <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300 leading-tight font-mono">
+                            SAQUE HOMOLOGADO!
+                          </span>
+                        </div>
+                        <span className="text-[8px] sm:text-[9px] text-white/60 font-bold uppercase tracking-wider leading-none font-mono">
+                          {notification.slot ? `Painel ${notification.slot}` : 'Aposta Realizada'} • Altitude: {altitudeAtCashout >= 100000 ? `${(altitudeAtCashout/1000).toFixed(1)} km` : `${altitudeAtCashout.toLocaleString('pt-BR')} m`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Multiplier Badge & Close */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-cyan-950/60 border border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+                        <span className="text-[8px] sm:text-[9px] font-bold text-cyan-400/80 uppercase font-mono">EM</span>
+                        <span className="text-sm sm:text-base font-black italic text-cyan-300 font-mono tabular-nums leading-none">
+                          {notification.multiplier.toFixed(2)}x
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setCashoutNotifications(prev => prev.filter(n => n.id !== notification.id))}
+                        className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                        title="Fechar"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Center Row: Big Cashout Value + Profit Pill */}
+                  <div className="flex items-baseline justify-between gap-2 pt-0.5 border-t border-white/5">
+                    <div className="flex flex-col">
+                      <span className="text-[7.5px] sm:text-[8px] font-bold text-cyan-400/70 uppercase tracking-widest font-mono">VALOR RECEBIDO</span>
+                      <span className="text-2xl sm:text-3xl font-black italic tracking-tight text-white font-mono leading-none drop-shadow-[0_0_20px_rgba(34,211,238,0.6)] tabular-nums">
+                        {formattedAmount}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-end">
+                      <span className="text-[7.5px] sm:text-[8px] font-bold text-emerald-400/80 uppercase tracking-widest font-mono">LUCRO LÍQUIDO</span>
+                      <div className="flex items-center gap-1 bg-emerald-950/60 border border-emerald-400/60 px-2 py-0.5 rounded-lg mt-0.5 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                        <span className="text-xs sm:text-sm font-black text-emerald-400 font-mono tabular-nums leading-none">
+                          {formattedProfit}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Micro Breakdown Row */}
+                  <div className="flex items-center justify-between text-[8px] sm:text-[8.5px] text-white/50 pt-1 border-t border-white/5 font-mono">
+                    <span>Aposta Inicial: <strong className="text-white/80">{formattedBet}</strong></span>
+                    <span className="text-emerald-400 font-bold">✓ Saldo Atualizado</span>
+                  </div>
+                </div>
+              );
+            })}
+            {depositNotifications.map((notification) => (
+              <div 
+                key={notification.id} 
+                className="animate-in zoom-in-95 slide-in-from-top-4 fade-in duration-300 w-full pointer-events-auto relative overflow-hidden rounded-2xl bg-gradient-to-b from-[#04121a]/95 via-[#020a10]/95 to-[#000000]/98 backdrop-blur-2xl border border-cyan-500/50 shadow-[0_12px_45px_rgba(6,182,212,0.35)] border-l-4 border-l-emerald-400 p-3 sm:p-3.5 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-black font-black shadow-[0_0_12px_rgba(16,185,129,0.7)] shrink-0">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 font-mono">
+                      DEPÓSITO APROVADO
+                    </span>
+                    <span className="text-[8px] sm:text-[9px] text-white/50 font-bold uppercase tracking-wider font-mono">
+                      PIX Instantâneo
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xl sm:text-2xl font-black italic text-emerald-400 font-mono tabular-nums leading-none drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                  +R$ {notification.amount.toFixed(2).replace('.', ',')}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <TopBanner 
+            balance={balance} 
+            aerocoinBalance={aerocoinBalance} 
+            activeEventId={activeEventId} 
+            activeLeagueType={activeLeagueType} 
+            fantasyFlightsLeft={fantasyFlightsLeft} 
+            onExitEvent={handleExitEventMode} 
+            isMuted={isMuted} 
+            onToggleMute={() => setIsMuted(!isMuted)} 
+            nextRoundHash={nextRoundServerSeedHash} 
+            onShowFairness={handleShowFairness} 
+            onWalletClick={() => setIsWalletModalOpen(true)} 
+            onMenuClick={() => setIsMenuOpen(true)} 
+            onProfileClick={() => setIsProfileModalOpen(true)} 
+            onNotificationsClick={() => setIsNotificationsOpen(!isNotificationsOpen)} 
+            unreadNotifications={appNotifications.filter(n => !n.read).length} 
+            userAvatar={userAvatar} 
+            onOpenPortal={() => {
+              const act = () => setIsInInitialLanding(true);
+              if (activeCabine) setPendingNavigationAction(() => act);
+              else act();
+            }} 
+            onSwitchMode={handleSwitchMode}
+            currentMode={activeEventId || activeCategory === 'aerofantasy' ? 'aerofantasy' : 'aerogame'}
+            onLogout={handleLogout}
+            onSwitchProfile={handleSwitchProfile}
+            username={currentUsername}
+            activeCabine={activeCabine}
+            onOpenCabineLobby={() => setIsCabineLobbyOpen(true)}
+            onOpenCabineChat={() => setIsCabineChatOpen(true)}
+          />
+
+          {/* O Banner Rotativo aparece no modo AeroGame e no Portal Inicial, ficando oculto apenas no modo AeroFantasy e no Modo Cabine */}
+          {(!activeEventId && activeCategory !== 'aerofantasy' && !activeCabine) && (
+            <div className="px-1 md:px-2 py-1">
+              <BannerCarousel 
+                banners={banners}
+                onOpenWallet={() => setIsWalletModalOpen(true)}
+                onOpenTournaments={() => { setActiveCategory('aerofantasy'); setIsInInitialLanding(false); }}
+                onOpenSubscription={() => setIsSubscriptionModalOpen(true)}
+              />
             </div>
-        </div>
+          )}
+
+          {(!activeEventId && activeCategory !== 'aerofantasy') && isInstallable && showInstallBanner && (
+            <div className="mx-1 md:mx-2 mb-2 p-3 md:p-4 rounded-2xl bg-gradient-to-r from-[#e51a31]/20 via-[#101010]/95 to-[#e51a31]/10 border border-[#e51a31]/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_4px_25px_rgba(229,26,49,0.15)] animate-in slide-in-from-top-4 duration-300 relative overflow-hidden group shrink-0">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#e51a31]/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center gap-3 relative z-10 w-full sm:w-auto">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#e51a31] to-red-600 flex flex-shrink-0 items-center justify-center font-black italic shadow-[0_0_15px_rgba(229,26,49,0.5)] text-white text-lg animate-bounce">
+                  A
+                </div>
+                <div className="text-left font-sans">
+                  <h3 className="text-xs font-black italic uppercase tracking-tight text-white flex flex-wrap items-center gap-1.5 leading-none">
+                    Aerofantasy como Aplicativo!
+                    <span className="bg-[#e51a31] text-white text-[8px] font-black italic px-1.5 py-0.5 rounded uppercase animate-pulse shrink-0">MELHOR JOGABILIDADE</span>
+                  </h3>
+                  <p className="text-[10px] text-white/70 font-bold mt-1.5">
+                    Instale agora para ter acesso instantâneo na tela inicial, desempenho máximo e jogar com 1-toque!
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 relative z-10 w-full sm:w-auto shrink-0 justify-end">
+                <button 
+                  onClick={handleInstallApp}
+                  className="px-4 py-2 bg-[#e51a31] hover:bg-[#ff1f3a] text-white rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(229,26,49,0.4)] active:scale-95 duration-100 cursor-pointer"
+                >
+                  Instalar App
+                </button>
+                <button 
+                  onClick={() => setShowInstallBanner(false)}
+                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-wider transition-all duration-100 cursor-pointer"
+                >
+                  Mais Tarde
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex-1 flex flex-col lg:flex-row gap-1">
         {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onLoginSuccess={handleLoginSuccess} />}
         
         {isInInitialLanding ? (
-          <div className="flex-1 flex flex-col gap-6 max-w-4xl mx-auto w-full px-2 py-4">
-            
-            {/* 1. Gráfico Atual do Jogo */}
-            <div className="flex-shrink-0 h-[280px] sm:h-[320px] md:h-[350px] flex flex-col bg-[#1b1c1d] rounded-2xl border border-white/5 overflow-hidden shadow-2xl relative">
-               <HistoryBar history={history} onShowFullHistory={() => setIsFullHistoryOpen(true)} />
-               <div className="flex-1 relative">
-                  <GameCanvas status={status} multiplier={multiplier} countdown={countdown} stats={roundStats} history={history} isSubscribed={isSubscribed} onOpenUpgrade={() => setIsBankrollModalOpen(true)} userStats={userStats} trackedMission={trackedMission} activeSkin={activeSkin} />
-               </div>
-            </div>
-
-            {/* 2. Botão Jogar Agora - Green Pulsating */}
-            <div className="flex flex-col items-center justify-center my-3 relative">
-              <button
-                onClick={() => {
-                  setIsInInitialLanding(false);
-                  setActiveCategory('aerobet');
-                }}
-                className="w-full max-w-sm py-4 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 hover:scale-105 active:scale-95 transition-all text-white font-black italic text-base sm:text-lg uppercase tracking-wider rounded-2xl shadow-[0_0_25px_rgba(40,167,105,0.45)] animate-pulse relative overflow-hidden cursor-pointer flex items-center justify-center gap-2"
-              >
-                🚀 JOGAR AGORA 🚀
-              </button>
-            </div>
-
-            {/* 3. Tutorial AeroFantasy */}
-            <div className="bg-[#141516] rounded-3xl border border-white/5 p-6 shadow-2xl relative overflow-hidden text-left">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-[#34b1e2]/5 rounded-full blur-[40px] pointer-events-none" />
-              <h3 className="text-xs sm:text-sm font-black italic uppercase text-white tracking-widest mb-3 flex items-center gap-2">
-                🏆 O QUE É O AEROFANTASY E COMO PARTICIPAR?
-              </h3>
-              
-              <p className="text-[11px] sm:text-xs text-white/70 leading-relaxed font-semibold mb-6">
-                O AeroFantasy é a arena competitiva de simulações de voo do AeroFLA! Aqui, você participa de campeonatos diários e semanais em tempo real contra outros pilotos, utiliza créditos virtuais dedicados (Aerocoins) ou créditos da carteira, e busca craquear os maiores multiplicadores possíveis. Os melhores pilotos do placar dividem prêmios reais acumulativos diretamente na conta!
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col gap-2">
-                  <div className="text-[10px] font-black text-[#34b1e2] uppercase tracking-wider">1. Escolha Ligas</div>
-                  <h4 className="text-xs font-black text-white/90 uppercase tracking-tight">Ingresse nas Arenas</h4>
-                  <p className="text-[10.5px] text-white/50 leading-relaxed">
-                    Navegue pelas ligas ativas de AeroFantasy, como a Liga dos Multiplicadores ou a Liga da Vela. Algumas são gratuitas e outras exigem taxas pequenas.
-                  </p>
-                </div>
-                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col gap-2">
-                  <div className="text-[10px] font-black text-[#10b981] uppercase tracking-wider">2. Pilote e Pontue</div>
-                  <h4 className="text-xs font-black text-white/90 uppercase tracking-tight">Decole no Momento Certo</h4>
-                  <p className="text-[10.5px] text-white/50 leading-relaxed">
-                    Para cada liga, você recebe voos limitados. Jogue de forma tática para decolar, decolando no multiplicador ideal e acumulando a maior pontuação.
-                  </p>
-                </div>
-                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col gap-2">
-                  <div className="text-[10px] font-black text-[#f59e0b] uppercase tracking-wider">3. Fature Prêmios</div>
-                  <h4 className="text-xs font-black text-white/90 uppercase tracking-tight">Conquiste o Topo do Placar</h4>
-                  <p className="text-[10.5px] text-white/50 leading-relaxed">
-                    Ao término da rodada da liga, os prêmios da piscina acumulada em dinheiro real são divididos e pagos integralmente na sua carteira.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* 4. Destaques das Skins da Loja */}
-            <div className="space-y-4 text-left">
-              <div className="flex justify-between items-center px-1">
-                <h3 className="text-xs sm:text-sm font-black italic uppercase text-white tracking-widest">
-                  🎨 AERONAVES PREMIUM EM DESTAQUE
-                </h3>
-                <button
-                  onClick={() => {
-                    setIsInInitialLanding(false);
-                    setActiveCategory('store');
-                  }}
-                  className="text-[10px] sm:text-xs font-black text-[#f59e0b] hover:underline uppercase tracking-wider"
-                >
-                  Ver Loja Completa →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                <div 
-                  onClick={() => {
-                    setIsInInitialLanding(false);
-                    setActiveCategory('store');
-                  }}
-                  className="bg-[#18191c] rounded-3xl p-4 border border-white/5 flex flex-col gap-3 group hover:border-white/10 hover:translate-y-[-2px] transition-all duration-300 cursor-pointer text-left"
-                >
-                  <div className="h-28 rounded-2xl bg-gradient-to-br from-[#ffe45c] via-[#dca817] to-[#111018] flex items-center justify-center relative overflow-hidden shadow-lg border border-white/5">
-                    <img
-                      src="/images/skin_soberano.png"
-                      alt="Soberano Dourado"
-                      referrerPolicy="no-referrer"
-                      className="w-24 h-24 object-contain mix-blend-screen drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] transform group-hover:scale-110 duration-500 z-10 select-none pointer-events-none"
-                    />
-                    <span className="absolute top-2 right-2 bg-amber-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase">
-                      Lendária
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-white uppercase tracking-wider">Soberano Dourado</h4>
-                    <p className="text-[10px] text-white/40 mt-1 line-clamp-2">
-                      Fuselagem banhada a ouro stardust refinada, o ápice da realeza e estilo espacial.
-                    </p>
-                  </div>
-                </div>
-
-                <div 
-                  onClick={() => {
-                    setIsInInitialLanding(false);
-                    setActiveCategory('store');
-                  }}
-                  className="bg-[#18191c] rounded-3xl p-4 border border-white/5 flex flex-col gap-3 group hover:border-white/10 hover:translate-y-[-2px] transition-all duration-300 cursor-pointer text-left"
-                >
-                  <div className="h-28 rounded-2xl bg-gradient-to-br from-[#141416] to-[#ff2d55] flex items-center justify-center relative overflow-hidden shadow-lg border border-white/5">
-                    <img
-                      src="/images/skin_dark.png"
-                      alt="Sombra de Elite"
-                      referrerPolicy="no-referrer"
-                      className="w-24 h-24 object-contain mix-blend-screen drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] transform group-hover:scale-110 duration-500 z-10 select-none pointer-events-none"
-                    />
-                    <span className="absolute top-2 right-2 bg-red-600 text-white text-[7px] font-black px-1.5 py-0.5 rounded uppercase font-sans">
-                      Stealth Elite
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-white uppercase tracking-wider">Sombra de Elite</h4>
-                    <p className="text-[10px] text-white/40 mt-1 line-clamp-2">
-                      Ocultação avançada com chassis de fibra de carbono fosca preta e neon ativo vermelho.
-                    </p>
-                  </div>
-                </div>
-
-                <div 
-                  onClick={() => {
-                    setIsInInitialLanding(false);
-                    setActiveCategory('store');
-                  }}
-                  className="bg-[#18191c] rounded-3xl p-4 border border-white/5 flex flex-col gap-3 group hover:border-[#34b1e2]/20 hover:translate-y-[-2px] transition-all duration-300 cursor-pointer text-left sm:col-span-2 md:col-span-1"
-                >
-                  <div className="h-28 rounded-2xl bg-gradient-to-br from-[#00f2fe] to-[#4facfe] flex items-center justify-center relative overflow-hidden shadow-lg border border-white/5">
-                    <img
-                      src="/images/skin_silver.png"
-                      alt="Tempestade de Prata"
-                      referrerPolicy="no-referrer"
-                      className="w-24 h-24 object-contain mix-blend-screen drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] transform group-hover:scale-110 duration-500 z-10 select-none pointer-events-none"
-                    />
-                    <span className="absolute top-2 right-2 bg-sky-500 text-black text-[7px] font-black px-1.5 py-0.5 rounded uppercase font-sans">
-                      Comanda
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-white uppercase tracking-wider">Tempestade de Prata</h4>
-                    <p className="text-[10px] text-white/40 mt-1 line-clamp-2">
-                      Chassis de cromo glacial reluzente com rastro e neon de plasma azul criogênico.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+          <div className="flex-1 flex flex-col max-w-6xl mx-auto w-full px-2 py-3 animate-in fade-in duration-300">
+            <ModeSelectionPortal
+              onSelectMode={(mode) => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                setIsInInitialLanding(false);
+                if (mode === 'aerobet' || mode === 'aerogame') {
+                  handleExitEventMode();
+                } else {
+                  setActiveCategory('aerofantasy');
+                }
+              }}
+              onSelectCabineMode={() => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                setIsInInitialLanding(false);
+                handleExitEventMode();
+                setIsCabineLobbyOpen(true);
+              }}
+              onOpenStore={() => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                setIsInInitialLanding(false);
+                setActiveCategory('store');
+              }}
+              onOpenHangar={() => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                setIsInInitialLanding(false);
+                setActiveCategory('hangar');
+              }}
+            />
           </div>
         ) : (
           <>
             <div className="order-1 lg:order-1 flex-1 flex flex-col gap-1 min-w-0">
-              {/* AERObet View - Always Mounted to maintain seamless online flight chart in background! */}
+              {/* AEROgame View - Always Mounted to maintain seamless online flight chart in background! */}
               <div 
                 className="flex-1 flex flex-col gap-1 min-w-0" 
                 style={{ display: activeCategory === 'aerobet' ? 'flex' : 'none' }}
               >
-                <div className="flex-shrink-0 h-[300px] sm:h-[350px] lg:h-auto lg:flex-1 flex flex-col bg-[#1b1c1d] rounded-2xl border border-white/5 overflow-hidden shadow-2xl relative">
-                   <HistoryBar history={history} onShowFullHistory={() => setIsFullHistoryOpen(true)} />
-                   <div className="flex-1 relative">
-                      <GameCanvas status={status} multiplier={multiplier} countdown={countdown} stats={roundStats} history={history} isSubscribed={isSubscribed} onOpenUpgrade={() => setIsBankrollModalOpen(true)} userStats={userStats} trackedMission={trackedMission} activeSkin={activeSkin} />
+                {/* HUD DA CABINE ATIVA: POSICIONADO NO TOPO, ACIMA DO GRÁFICO */}
+                {activeCabine && (
+                  <CabineActiveBanner
+                    cabine={activeCabine}
+                    onOpenChat={() => setIsCabineChatOpen(true)}
+                    onCloseCabine={() => setIsCabineCloseModalOpen(true)}
+                    unreadCount={0}
+                    isRadioOn={isRadioOn}
+                    onToggleRadio={handleToggleRadio}
+                    isMicMuted={isMicMuted}
+                    onToggleMicMute={handleToggleMicMute}
+                    isTalking={isTalking}
+                    isPartnerTalking={isPartnerTalking}
+                    onStartTalking={handleStartTalking}
+                    onStopTalking={handleStopTalking}
+                    radioVolume={radioVolume}
+                    isHandsFree={isHandsFree}
+                    onToggleHandsFree={handleToggleHandsFree}
+                  />
+                )}
+
+                <div className="h-[440px] sm:h-[500px] md:h-[550px] lg:h-auto lg:flex-1 flex-shrink-0 flex flex-col bg-[#141517] rounded-3xl border border-white/10 overflow-hidden shadow-2xl relative">
+                    {activeEventId && (
+                      <div className="bg-gradient-to-r from-[#030d1e]/95 via-[#071d3a]/95 to-[#030d1e]/95 text-white px-3 sm:px-4 py-1 flex flex-wrap items-center justify-between gap-1.5 z-20 shadow-md border-b border-cyan-400/30 backdrop-blur-md animate-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-wrap">
+                          <div className="flex items-center gap-1 bg-cyan-950/70 border border-cyan-400/40 px-2 py-0.5 rounded-lg text-cyan-300 font-mono text-[10px] font-black shrink-0 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                            <span>SALA #{activeEventId.replace('sala-', '')}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 bg-amber-400/15 border border-amber-400/40 text-amber-300 px-2 py-0.5 rounded-lg text-[10px] font-black shrink-0">
+                            <span>🏆 {myFantasyRank}º LUGAR</span>
+                            <span className="text-white/30">•</span>
+                            <span className="font-mono text-amber-200">{userFantasyScore.toFixed(1)} pts</span>
+                          </div>
+
+                          <div className="flex items-center gap-1 bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0">
+                            <span>{myFantasyRank === 1 ? '👑 LÍDER' : `🎯 +${pointsToClimb.toFixed(1)} pts p/ ${myFantasyRank - 1}º`}</span>
+                          </div>
+
+                          <div className="text-[10px] text-sky-200/80 font-medium shrink-0 hidden md:inline-flex items-center gap-1">
+                            <span>✈️ Cota:</span>
+                            <strong className="text-cyan-300 font-mono font-bold">{fantasyFlightsLeft ?? 100}/100</strong>
+                            {userFantasyFlightsUsed > 0 && <span className="text-white/40">({userFantasyFlightsUsed} realizados)</span>}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => {
+                              setFantasyTargetView('room');
+                              setActiveCategory('aerofantasy');
+                              window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                            }}
+                            className="text-[10px] font-black uppercase bg-gradient-to-r from-blue-600 via-sky-500 to-cyan-400 hover:from-blue-500 hover:to-cyan-300 text-white px-2 py-0.5 rounded-lg border border-cyan-400/40 transition-all cursor-pointer flex items-center gap-1 shadow-[0_0_10px_rgba(0,180,216,0.3)] active:scale-95"
+                          >
+                            <span>📊 Ver Sala & Ranking</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setFantasyTargetView('hall');
+                              setActiveCategory('aerofantasy');
+                              window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+                            }}
+                            className="text-[10px] font-bold uppercase bg-white/5 hover:bg-white/10 text-white/80 hover:text-white px-2 py-0.5 rounded-lg border border-white/10 transition-all cursor-pointer active:scale-95"
+                          >
+                            <span>🏛️ Hall</span>
+                          </button>
+                          <button
+                            onClick={handleExitEventMode}
+                            className="text-[10px] font-black uppercase bg-red-600/20 hover:bg-red-600/40 text-red-300 hover:text-white px-2 py-0.5 rounded-lg border border-red-500/30 transition-all cursor-pointer active:scale-95"
+                            title="Sair da Sala de Competição"
+                          >
+                            ✕ Sair
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <HistoryBar history={history} onShowFullHistory={() => setIsFullHistoryOpen(true)} />
+                   <div className="flex-1 relative w-full h-full min-h-[340px]">
+                      <GameCanvas status={status} multiplier={multiplier} countdown={countdown} stats={effectiveRoundStats} history={history} isSubscribed={isSubscribed} onOpenUpgrade={() => setIsBankrollModalOpen(true)} userStats={userStats} trackedMission={trackedMission} activeSkin={activeSkin} canvasBgConfig={canvasBgConfig} activeCanvasBgImage={activeCanvasBgImage} activeCanvasBgVideo={activeCanvasBgVideo} />
                    </div>
                 </div>
-                <div className="order-2 relative flex-shrink-0 py-1 mb-1.5 lg:mb-0">
-                  <div className={`grid grid-cols-2 gap-1.5 sm:gap-2 transition-all duration-500 items-start`}>
-                    <div className="min-h-[145px] sm:min-h-[160px]">
-                      <BetControl mode={betMode1} setMode={setBetMode1} status={status} currentMultiplier={multiplier} balance={currentAvailableBalance} freeFlights={userStats.freeFlights} freeFlightConfigs={freeFlightConfigs} activeEventId={activeEventId} activeLeagueType={activeLeagueType} aerocoinBalance={aerocoinBalance} onPlaceBet={(amt, useFreeBet) => handlePlaceBet(1, amt, useFreeBet)} onCancelBet={() => handleCancelBet(1)} onCashout={(val) => handleCashout(1, val)} activeBet={bet1} nextRoundBet={nextRoundBet1 ? nextRoundBet1.amount : null} isSubscribed={isSubscribed} bankrollPlan={activePlanSlot1} onOpenManager={() => setIsBankrollModalOpen(true)} history={history} />
-                    </div>
-                    <div className="min-h-[145px] sm:min-h-[160px]">
-                      <BetControl mode={betMode2} setMode={setBetMode2} status={status} currentMultiplier={multiplier} balance={currentAvailableBalance} freeFlights={userStats.freeFlights} freeFlightConfigs={freeFlightConfigs} activeEventId={activeEventId} activeLeagueType={activeLeagueType} aerocoinBalance={aerocoinBalance} onPlaceBet={(amt, useFreeBet) => handlePlaceBet(2, amt, useFreeBet)} onCancelBet={() => handleCancelBet(2)} onCashout={(val) => handleCashout(2, val)} activeBet={bet2} nextRoundBet={nextRoundBet2 ? nextRoundBet2.amount : null} isSubscribed={isSubscribed} bankrollPlan={activePlanSlot2} onOpenManager={() => setIsBankrollModalOpen(true)} history={history} />
-                    </div>
+                <div className="order-2 relative flex-shrink-0 pt-2 pb-1 mb-2 lg:mb-0">
+                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3 transition-all duration-500 items-stretch`}>
+                    {!activeCabine ? (
+                      <>
+                        <div className="min-h-[160px] sm:min-h-[175px]">
+                          <BetControl mode={betMode1} setMode={setBetMode1} status={status} currentMultiplier={multiplier} balance={currentAvailableBalance} freeFlights={userStats.freeFlights} freeFlightConfigs={freeFlightConfigs} activeEventId={activeEventId} activeLeagueType={activeLeagueType} fantasyFlightsLeft={fantasyFlightsLeft} aerocoinBalance={aerocoinBalance} onPlaceBet={(amt, useFreeBet) => handlePlaceBet(1, amt, useFreeBet)} onCancelBet={() => handleCancelBet(1)} onCashout={(val) => handleCashout(1, val)} activeBet={bet1} nextRoundBet={nextRoundBet1 ? nextRoundBet1.amount : null} isSubscribed={isSubscribed} bankrollPlan={activePlanSlot1} onOpenManager={() => setIsBankrollModalOpen(true)} history={history} />
+                        </div>
+                        <div className="min-h-[160px] sm:min-h-[175px]">
+                          <BetControl mode={betMode2} setMode={setBetMode2} status={status} currentMultiplier={multiplier} balance={currentAvailableBalance} freeFlights={userStats.freeFlights} freeFlightConfigs={freeFlightConfigs} activeEventId={activeEventId} activeLeagueType={activeLeagueType} fantasyFlightsLeft={fantasyFlightsLeft} aerocoinBalance={aerocoinBalance} onPlaceBet={(amt, useFreeBet) => handlePlaceBet(2, amt, useFreeBet)} onCancelBet={() => handleCancelBet(2)} onCashout={(val) => handleCashout(2, val)} activeBet={bet2} nextRoundBet={nextRoundBet2 ? nextRoundBet2.amount : null} isSubscribed={isSubscribed} bankrollPlan={activePlanSlot2} onOpenManager={() => setIsBankrollModalOpen(true)} history={history} />
+                        </div>
+                      </>
+                    ) : activeCabine.userRole === 'pilot' ? (
+                      <>
+                        {/* Slot 1: Piloto (Você opera exclusivamente este slot) */}
+                        <div className="min-h-[160px] sm:min-h-[175px] flex flex-col justify-between select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                          <div className="flex items-center justify-between px-3 py-1.5 mb-1 rounded-xl bg-[#1f2937] border border-[#374151] text-xs font-bold text-slate-200 shrink-0">
+                            <span className="flex items-center gap-1.5">
+                              <span>👨‍✈️</span>
+                              <span>Slot 1 • Piloto (Você)</span>
+                            </span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              Banca: R$ {activeCabine.currentBalance.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Faixa de Rádio Intercom do Piloto */}
+                          <div className="flex items-center justify-between px-3 py-1.5 mb-1.5 rounded-xl bg-[#111827] border border-[#1f2937] text-xs font-bold text-slate-200 shrink-0 gap-2">
+                            <div className="flex flex-col text-left">
+                              <span className="text-[10px] font-black uppercase text-slate-300 tracking-wider">🎙️ Intercom Cabine</span>
+                              <span className="text-[9px] font-semibold text-slate-400">
+                                {isRadioOn ? "Aperte e segure para falar por voz" : "O rádio está desligado"}
+                              </span>
+                            </div>
+                            
+                            {!isRadioOn ? (
+                              <button
+                                type="button"
+                                onClick={handleToggleRadio}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black uppercase tracking-wider cursor-pointer transition-colors border border-emerald-500"
+                              >
+                                Ligar Rádio
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                {/* Botão PTT (Push-To-Talk) */}
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => { e.preventDefault(); handleStartTalking(); }}
+                                  onMouseUp={(e) => { e.preventDefault(); handleStopTalking(); }}
+                                  onMouseLeave={(e) => { e.preventDefault(); handleStopTalking(); }}
+                                  onTouchStart={(e) => { e.preventDefault(); handleStartTalking(); }}
+                                  onTouchEnd={(e) => { e.preventDefault(); handleStopTalking(); }}
+                                  onContextMenu={(e) => e.preventDefault()}
+                                  style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+                                  disabled={isHandsFree}
+                                  className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest select-none transition-all border ${
+                                    isHandsFree 
+                                      ? 'bg-red-600 border-red-500 text-white animate-pulse opacity-80 cursor-not-allowed'
+                                      : isTalking
+                                        ? 'bg-red-600 border-red-500 text-white animate-pulse cursor-pointer'
+                                        : isPartnerTalking
+                                          ? 'bg-sky-600 border-sky-500 text-white cursor-pointer'
+                                          : 'bg-[#1f2937] border-[#374151] text-slate-200 hover:bg-slate-700 cursor-pointer'
+                                  }`}
+                                  title={isHandsFree ? "Automação Hands-Free Ativa" : "Mantenha pressionado para falar"}
+                                >
+                                  {isHandsFree ? '🎙️ TRANSMITINDO' : isTalking ? '🎙️ FALANDO...' : isPartnerTalking ? '🎧 OUVINDO...' : '🎙️ PRESS PTT'}
+                                </button>
+
+                                {/* Botão Automação (Hands-Free) */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.preventDefault(); handleToggleHandsFree(); }}
+                                  onContextMenu={(e) => e.preventDefault()}
+                                  style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer border ${
+                                    isHandsFree
+                                      ? 'bg-red-600 border-red-500 text-white animate-pulse'
+                                      : 'bg-[#1f2937] border-[#374151] text-slate-300 hover:bg-slate-700'
+                                  }`}
+                                  title="Automação do Rádio: Mãos Livres (VOX)"
+                                >
+                                  {isHandsFree ? 'VOX: ON' : 'VOX: OFF'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1">
+                            <BetControl mode={betMode1} setMode={setBetMode1} status={status} currentMultiplier={multiplier} balance={currentAvailableBalance} freeFlights={0} freeFlightConfigs={freeFlightConfigs} activeEventId={null} activeLeagueType={null} fantasyFlightsLeft={null} aerocoinBalance={0} onPlaceBet={(amt, useFreeBet) => handlePlaceBet(1, amt, false)} onCancelBet={() => handleCancelBet(1)} onCashout={(val) => handleCashout(1, val)} activeBet={bet1} nextRoundBet={nextRoundBet1 ? nextRoundBet1.amount : null} isSubscribed={isSubscribed} bankrollPlan={activePlanSlot1} onOpenManager={() => setIsBankrollModalOpen(true)} history={history} />
+                          </div>
+                        </div>
+                        {/* Slot 2: Copiloto (Parceiro de Cabine) */}
+                        <div className="min-h-[160px] sm:min-h-[175px]">
+                          <CabinePartnerSlot 
+                            cabine={activeCabine}
+                            status={status}
+                            multiplier={multiplier}
+                            partnerBet={simulatedPartnerBet}
+                            onOpenChat={() => setIsCabineChatOpen(true)}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Slot 1: Piloto (Parceiro de Cabine) */}
+                        <div className="min-h-[160px] sm:min-h-[175px]">
+                          <CabinePartnerSlot 
+                            cabine={activeCabine}
+                            status={status}
+                            multiplier={multiplier}
+                            partnerBet={simulatedPartnerBet}
+                            onOpenChat={() => setIsCabineChatOpen(true)}
+                          />
+                        </div>
+                        {/* Slot 2: Copiloto (Você opera exclusivamente este slot) */}
+                        <div className="min-h-[160px] sm:min-h-[175px] flex flex-col justify-between select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                          <div className="flex items-center justify-between px-3 py-1.5 mb-1 rounded-xl bg-[#1f2937] border border-[#374151] text-xs font-bold text-slate-200 shrink-0">
+                            <span className="flex items-center gap-1.5">
+                              <span>👨‍✈️</span>
+                              <span>Slot 2 • Copiloto (Você)</span>
+                            </span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              Banca: R$ {activeCabine.currentBalance.toFixed(2)}
+                            </span>
+                          </div>
+
+                          {/* Faixa de Rádio Intercom do Copiloto */}
+                          <div className="flex items-center justify-between px-3 py-1.5 mb-1.5 rounded-xl bg-[#111827] border border-[#1f2937] text-xs font-bold text-slate-200 shrink-0 gap-2">
+                            <div className="flex flex-col text-left">
+                              <span className="text-[10px] font-black uppercase text-slate-300 tracking-wider">🎙️ Intercom Cabine</span>
+                              <span className="text-[9px] font-semibold text-slate-400">
+                                {isRadioOn ? "Aperte e segure para falar por voz" : "O rádio está desligado"}
+                              </span>
+                            </div>
+                            
+                            {!isRadioOn ? (
+                              <button
+                                type="button"
+                                onClick={handleToggleRadio}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-black uppercase tracking-wider cursor-pointer transition-colors border border-emerald-500"
+                              >
+                                Ligar Rádio
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                {/* Botão PTT (Push-To-Talk) */}
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => { e.preventDefault(); handleStartTalking(); }}
+                                  onMouseUp={(e) => { e.preventDefault(); handleStopTalking(); }}
+                                  onMouseLeave={(e) => { e.preventDefault(); handleStopTalking(); }}
+                                  onTouchStart={(e) => { e.preventDefault(); handleStartTalking(); }}
+                                  onTouchEnd={(e) => { e.preventDefault(); handleStopTalking(); }}
+                                  onContextMenu={(e) => e.preventDefault()}
+                                  style={{ userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+                                  disabled={isHandsFree}
+                                  className={`px-3 py-1 rounded text-[10px] font-black uppercase tracking-widest select-none transition-all border ${
+                                    isHandsFree 
+                                      ? 'bg-red-600 border-red-500 text-white animate-pulse opacity-80 cursor-not-allowed'
+                                      : isTalking
+                                        ? 'bg-red-600 border-red-500 text-white animate-pulse cursor-pointer'
+                                        : isPartnerTalking
+                                          ? 'bg-sky-600 border-sky-500 text-white cursor-pointer'
+                                          : 'bg-[#1f2937] border-[#374151] text-slate-200 hover:bg-slate-700 cursor-pointer'
+                                  }`}
+                                  title={isHandsFree ? "Automação Hands-Free Ativa" : "Mantenha pressionado para falar"}
+                                >
+                                  {isHandsFree ? '🎙️ TRANSMITINDO' : isTalking ? '🎙️ FALANDO...' : isPartnerTalking ? '🎧 OUVINDO...' : '🎙️ PRESS PTT'}
+                                </button>
+
+                                {/* Botão Automação (Hands-Free) */}
+                                <button
+                                  type="button"
+                                  onClick={handleToggleHandsFree}
+                                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer border ${
+                                    isHandsFree
+                                      ? 'bg-red-600 border-red-500 text-white animate-pulse'
+                                      : 'bg-[#1f2937] border-[#374151] text-slate-300 hover:bg-slate-700'
+                                  }`}
+                                  title="Automação do Rádio: Mãos Livres (VOX)"
+                                >
+                                  {isHandsFree ? 'VOX: ON' : 'VOX: OFF'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex-1">
+                            <BetControl mode={betMode2} setMode={setBetMode2} status={status} currentMultiplier={multiplier} balance={currentAvailableBalance} freeFlights={0} freeFlightConfigs={freeFlightConfigs} activeEventId={null} activeLeagueType={null} fantasyFlightsLeft={null} aerocoinBalance={0} onPlaceBet={(amt, useFreeBet) => handlePlaceBet(2, amt, false)} onCancelBet={() => handleCancelBet(2)} onCashout={(val) => handleCashout(2, val)} activeBet={bet2} nextRoundBet={nextRoundBet2 ? nextRoundBet2.amount : null} isSubscribed={isSubscribed} bankrollPlan={activePlanSlot2} onOpenManager={() => setIsBankrollModalOpen(true)} history={history} />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Other Views - Rendered conditionally */}
               {activeCategory === 'aerofantasy' ? (
-                <div className="flex-1 flex flex-col bg-[#1b1c1d] rounded-2xl border border-white/5 overflow-hidden shadow-2xl relative">
-                  <TournamentsModal 
-                    onClose={() => setActiveCategory('aerobet')} 
-                    tournaments={tournaments} 
-                    onJoinTournament={(tid, cost) => {
-                      handleJoinEvent(tid, cost);
-                      setActiveCategory('aerobet'); 
+                <div className="flex-1 flex flex-col bg-[#030811] rounded-2xl border border-[#1b3658] overflow-hidden shadow-2xl relative">
+                  <AeroFantasyHub 
+                    onSelectMode={(mode) => {
+                      if (mode === 'aerobet' || mode === 'aerogame') {
+                        setActiveCategory('aerobet');
+                      } else {
+                        setActiveCategory(mode as any);
+                      }
                     }}
-                    isInline={true}
+                    onOpenPortal={() => setIsInInitialLanding(true)}
+                    activeEventId={activeEventId}
+                    fantasyFlightsLeft={fantasyFlightsLeft}
+                    userFantasyScore={userFantasyScore}
+                    userFantasyFlightsUsed={userFantasyFlightsUsed}
+                    userFantasyMaxMult={userFantasyMaxMult}
+                    myFantasyRank={myFantasyRank}
+                    pointsToClimb={pointsToClimb}
+                    aheadCompetitorName={aheadCompetitor?.name}
+                    targetView={fantasyTargetView}
+                    onOpenDeposit={() => setIsWalletModalOpen(true)}
+                    onJoinCompetition={(roomId, cost, flights) => {
+                      handleJoinEvent(roomId, cost);
+                      setUserFantasyScore(0);
+                      setUserFantasyFlightsUsed(0);
+                      setUserFantasyMaxMult(0);
+                      setFantasyFlightsLeft(flights || 100);
+                      setActiveLeagueType('multiplier');
+                      handleAddNotification("AeroFantasy Ativado!", `Você entrou na sala com ${flights || 100} voos competitivos!`, "reward");
+                    }}
+                    onExitCompetition={handleExitEventMode}
+                    userBalance={balance}
+                    currentMultiplier={multiplier}
+                    gameStatus={status}
+                    currentUsername={currentUsername}
                   />
                 </div>
               ) : activeCategory === 'store' ? (
@@ -2160,9 +3139,32 @@ const App: React.FC = () => {
                 </div>
               ) : null}
             </div>
-            <div className="order-3 lg:order-2 lg:w-64 xl:w-72 flex-shrink-0 h-[400px] lg:h-full">
-                <Sidebar allBets={liveBets} gameStatus={status} currentMultiplier={multiplier} stats={roundStats} chatMessages={chatMessages} onSendMessage={handleSendMessage} myHistory={myHistory} />
-            </div>
+            {activeCategory === 'aerobet' && (
+              <div className="order-3 lg:order-2 lg:w-64 xl:w-72 flex-shrink-0 h-[400px] lg:h-full">
+                  <Sidebar 
+                    allBets={liveBets} 
+                    gameStatus={status} 
+                    currentMultiplier={multiplier} 
+                    stats={effectiveRoundStats} 
+                    chatMessages={chatMessages} 
+                    onSendMessage={handleSendMessage} 
+                    myHistory={myHistory}
+                    activeCabine={activeCabine}
+                    cabineMessages={cabineMessages}
+                    onSendCabineMessage={handleSendCabineMessage}
+                    currentUsername={currentUsername}
+                    isRadioOn={isRadioOn}
+                    onToggleRadio={handleToggleRadio}
+                    isMicMuted={isMicMuted}
+                    onToggleMicMute={handleToggleMicMute}
+                    isTalking={isTalking}
+                    isPartnerTalking={isPartnerTalking}
+                    onStartTalking={handleStartTalking}
+                    onStopTalking={handleStopTalking}
+                    radioVolume={radioVolume}
+                  />
+              </div>
+            )}
           </>
         )}
       </div>

@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { AeroFantasyLeagueType } from '../types';
+import { AeroFantasyLeagueType, CabineSession } from '../types';
 
 interface TopBannerProps {
   balance: number;
   aerocoinBalance?: number; 
   activeEventId?: string | null; 
-  activeLeagueType?: AeroFantasyLeagueType | null; // NOVO
+  activeLeagueType?: AeroFantasyLeagueType | null;
   fantasyFlightsLeft?: number | null; 
   onExitEvent?: () => void; 
   isMuted: boolean;
@@ -19,6 +19,15 @@ interface TopBannerProps {
   onNotificationsClick: () => void;
   unreadNotifications: number;
   userAvatar: string;
+  onOpenPortal?: () => void;
+  onSwitchMode?: (targetMode?: string) => void;
+  currentMode?: 'aerogame' | 'aerobet' | 'aerofantasy' | 'store' | 'hangar';
+  onLogout?: () => void;
+  onSwitchProfile?: () => void;
+  username?: string;
+  activeCabine?: CabineSession | null;
+  onOpenCabineLobby?: () => void;
+  onOpenCabineChat?: () => void;
 }
 
 const EyeIcon = () => (
@@ -31,7 +40,7 @@ const EyeIcon = () => (
 const EyeOffIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-    <line x1="1" y1="1" x2="23" y2="23" />
+    <line x1="1" y1="23" x2="23" y2="23" />
   </svg>
 );
 
@@ -51,29 +60,84 @@ const TopBanner: React.FC<TopBannerProps> = ({
   onProfileClick,
   onNotificationsClick,
   unreadNotifications,
-  userAvatar
+  userAvatar,
+  onOpenPortal,
+  onSwitchMode,
+  currentMode = 'aerogame',
+  onLogout,
+  onSwitchProfile,
+  username = 'Piloto',
+  activeCabine,
+  onOpenCabineLobby,
+  onOpenCabineChat
 }) => {
   const [showBalance, setShowBalance] = useState(true);
 
+  const isFantasyActive = activeEventId || currentMode === 'aerofantasy';
+
+  const handleToggleMode = () => {
+    if (onSwitchMode) {
+      onSwitchMode(isFantasyActive ? 'aerogame' : 'aerofantasy');
+    } else if (onOpenPortal) {
+      onOpenPortal();
+    }
+  };
+
   return (
-    <nav className={`flex items-center justify-between px-2 sm:px-3 py-1.5 rounded-xl border flex-shrink-0 z-[60] shadow-lg sticky top-1.5 transition-colors duration-500 w-full overflow-x-auto no-scrollbar ${activeEventId ? 'bg-[#0f1922] border-[#34b1e2]/30' : 'bg-[#1b1c1d] border-white/5'}`}>
-      <div className="flex items-center gap-1 sm:gap-3 md:gap-4 shrink-0">
+    <nav className={`flex items-center justify-between px-2 sm:px-3 py-1.5 rounded-xl border flex-shrink-0 z-[60] shadow-lg sticky top-1.5 transition-colors duration-500 w-full overflow-x-auto no-scrollbar ${isFantasyActive ? 'bg-[#0b1624] border-[#34b1e2]/30' : 'bg-[#1b1c1d] border-white/5'}`}>
+      <div className="flex items-center gap-1 sm:gap-2.5 md:gap-3 shrink-0">
         {/* Menu Hamburguer */}
         <button 
           onClick={onMenuClick}
-          className="p-2 -ml-1 text-white/50 hover:text-white transition-colors hover:bg-white/5 rounded-lg active:scale-95"
+          className="p-2 -ml-1 text-white/50 hover:text-white transition-colors hover:bg-white/5 rounded-lg active:scale-95 cursor-pointer"
+          title="Abrir Menu"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
 
-        <div className="flex items-center font-black text-base sm:text-lg italic tracking-tighter uppercase select-none">
-          <span className="text-[#e51a31]">AERO</span>
-          <span className="text-white">bet</span>
-        </div>
+        {/* Logo / Nome do Modo (clicável para ir à tela de Início do modo) */}
+        <button 
+          onClick={() => {
+            if (onSwitchMode) {
+              onSwitchMode(isFantasyActive ? 'aerofantasy' : 'aerogame');
+            }
+          }}
+          className="font-black text-base sm:text-lg italic tracking-tighter uppercase flex items-center select-none cursor-pointer hover:opacity-85 active:scale-95 transition-all border-0 bg-transparent p-0 text-left"
+          title={isFantasyActive ? "Ir para o Início do AeroFantasy" : "Ir para o Início do AeroGame"}
+        >
+          {isFantasyActive ? (
+            <>
+              <span className="text-white">AERO</span>
+              <span className="text-[#34b1e2]">fantasy</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[#e51a31]">AERO</span>
+              <span className="text-white">game</span>
+            </>
+          )}
+        </button>
+
+        {/* Controle Compacto "Trocar Modo" */}
+        {(onSwitchMode || onOpenPortal) && (
+          <button 
+            onClick={handleToggleMode}
+            title={isFantasyActive ? "Trocar para o Modo AeroGame (Crash Clássico com Dinheiro Real)" : "Trocar para o Modo AeroFantasy (Torneios e Ligas)"}
+            className={`flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg font-black text-[9px] sm:text-[10px] uppercase tracking-wider border cursor-pointer shadow-sm transition-all duration-200 active:scale-95 group shrink-0 ${
+              isFantasyActive
+                ? 'bg-red-500/20 hover:bg-red-500/30 text-red-200 hover:text-white border-red-500/30'
+                : 'bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 hover:text-white border-sky-400/30'
+            }`}
+          >
+            <span className="text-[10px] sm:text-xs transition-transform duration-300 group-hover:rotate-180">🔄</span>
+            <span className="font-extrabold whitespace-nowrap hidden xs:inline">Trocar Modo</span>
+            <span className="font-extrabold whitespace-nowrap xs:hidden">Modo</span>
+          </button>
+        )}
       </div>
       
       <div className="flex items-center gap-1 sm:gap-2 min-w-0 justify-end">
@@ -105,7 +169,7 @@ const TopBanner: React.FC<TopBannerProps> = ({
         </div>
 
         {/* Saldo, Notificações e Avatar */}
-        <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-white/5 ml-1 sm:ml-2">
+        <div className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-white/5 ml-1 sm:ml-2 relative">
            
            <button 
              onClick={onNotificationsClick}
@@ -177,13 +241,15 @@ const TopBanner: React.FC<TopBannerProps> = ({
                 </div>
            )}
           
+          {/* User Profile Avatar */}
           <button 
             onClick={onProfileClick}
-            className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden hover:border-[#e51a31] transition-all active:scale-95 shadow-lg group"
+            className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden hover:border-[#e51a31] hover:ring-2 hover:ring-red-500/30 transition-all active:scale-95 shadow-lg group cursor-pointer"
+            title="Abrir Meu Perfil & Conta"
           >
              <img 
                src={userAvatar} 
-               alt="User" 
+               alt="User Avatar" 
                className="w-full h-full object-cover transition-transform group-hover:scale-110"
              />
           </button>

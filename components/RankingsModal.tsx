@@ -12,7 +12,7 @@ const RankingsModal: React.FC<RankingsModalProps> = ({ onClose }) => {
   const RANKING_DATA = [
       { rank: 1, name: "MestreDoAero", amount: 15420.50, multiplier: 1250.00, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=King" },
       { rank: 2, name: "ReiDoVoo", amount: 12100.00, multiplier: 850.20, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" },
-      { rank: 3, name: "Jogador_Elite", amount: 8450.75, multiplier: 520.10, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=AERObetFan10", isMe: true }, // Simulando o usuário
+      { rank: 3, name: "Jogador_Elite", amount: 8450.75, multiplier: 520.10, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=AEROgameFan10", isMe: true }, // Simulando o usuário
       { rank: 4, name: "VencedorMax", amount: 5200.20, multiplier: 210.50, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Zico" },
       { rank: 5, name: "VooRasante", amount: 3100.00, multiplier: 105.00, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Pilot" },
   ];

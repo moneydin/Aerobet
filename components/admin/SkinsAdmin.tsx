@@ -40,8 +40,52 @@ export default function AeronavesAdmin() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
+        // Limpa com transparência pura
+        ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
+
+        // Verificação inteligente de transparência (se a imagem já for PNG transparente ou se tiver fundo sólido para remoção automática)
+        try {
+          const imgData = ctx.getImageData(0, 0, width, height);
+          const data = imgData.data;
+
+          let hasAlpha = false;
+          for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 235) {
+              hasAlpha = true;
+              break;
+            }
+          }
+
+          // Se a imagem NÃO possui canal alfa e tem cantos com fundo uniforme (branco ou preto), converte o fundo em transparência
+          if (!hasAlpha && data.length >= 16) {
+            const cornerR = data[0];
+            const cornerG = data[1];
+            const cornerB = data[2];
+
+            const isWhiteBackground = cornerR > 240 && cornerG > 240 && cornerB > 240;
+            const isBlackBackground = cornerR < 15 && cornerG < 15 && cornerB < 15;
+
+            if (isWhiteBackground || isBlackBackground) {
+              for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                if (isWhiteBackground && r > 230 && g > 230 && b > 230) {
+                  data[i + 3] = 0;
+                } else if (isBlackBackground && r < 18 && g < 18 && b < 18) {
+                  data[i + 3] = 0;
+                }
+              }
+              ctx.putImageData(imgData, 0, 0);
+            }
+          }
+        } catch (e) {
+          console.warn("Transparency processing skipped", e);
+        }
         
+        // Exporta mantendo formato PNG 32-bit com transparência intacta
         const base64 = canvas.toDataURL('image/png');
         setNewAeronave(prev => isCover 
           ? { ...prev, coverImageBase64: base64 } 
@@ -297,7 +341,7 @@ export default function AeronavesAdmin() {
                      <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="upload-sprite" />
                      <label htmlFor="upload-sprite" className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-white/20 rounded-lg cursor-pointer group-hover:bg-white/5 group-hover:border-[#10b981]/50 transition-all">
                         {newAeronave.imageBase64 ? (
-                          <img src={newAeronave.imageBase64} className="h-16 object-contain mix-blend-screen" alt="preview" />
+                          <img src={newAeronave.imageBase64} className="h-16 object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]" alt="preview" />
                         ) : (
                           <span className="text-xs font-mono text-white/40">Selecionar Imagem</span>
                         )}
@@ -560,7 +604,7 @@ export default function AeronavesAdmin() {
                         className="absolute inset-x-0 bottom-0 h-24 blur-2xl opacity-40 mix-blend-screen transition-opacity group-hover:opacity-60"
                         style={{ background: `radial-gradient(ellipse at bottom, ${sk.smokeColor || '#34b1e2'} 0%, transparent 80%)` }}
                      />
-                     <img src={sk.imageBase64} className="w-24 h-24 object-contain mix-blend-screen relative z-10 drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] transition-transform group-hover:scale-110" style={{ transform: sk.flipX ? 'scaleX(-1)' : 'none' }} alt={sk.name}/>
+                     <img src={sk.imageBase64} className="w-24 h-24 object-contain relative z-10 drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] transition-transform group-hover:scale-110" style={{ transform: sk.flipX ? 'scaleX(-1)' : 'none' }} alt={sk.name}/>
                      
                      <div className="absolute top-3 left-3 bg-white/10 backdrop-blur-sm px-2 py-1 rounded-md">
                         <span className="text-[9px] font-black uppercase text-white/60">{sk.category === 'skin' ? 'Aeronave' : 'Item'}</span>
@@ -575,13 +619,14 @@ export default function AeronavesAdmin() {
                      <div className="flex w-full gap-2 mt-5">
                        <button
                          onClick={() => { setNewAeronave(sk); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                         className="flex-1 px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors border border-white/10"
+                         className="flex-1 px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-white/5 text-white/70 hover:bg-white/10 hover:text-white transition-colors border border-white/10 cursor-pointer"
                        >
                          Editar Layout
                        </button>
                        <button
                          onClick={() => { toggleCustomSkinActive(sk.id, sk); refreshAeronaves(); }}
-                         className={`w-12 flex items-center justify-center rounded-xl border transition-all ${active ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'}`}
+                         className={`w-10 flex items-center justify-center rounded-xl border transition-all cursor-pointer ${active ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'}`}
+                         title={active ? 'Desativar da Loja' : 'Ativar na Loja'}
                        >
                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                            {active ? (
@@ -589,6 +634,27 @@ export default function AeronavesAdmin() {
                            ) : (
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
                            )}
+                         </svg>
+                       </button>
+                       <button
+                         onClick={async () => {
+                           if (confirm(`Tem certeza que deseja EXCLUIR a aeronave "${sk.name}" permanentemente?`)) {
+                             await deleteCustomSkin(sk.id);
+                             refreshAeronaves();
+                             if (newAeronave.id === sk.id) {
+                               setNewAeronave({
+                                 name: '', price: 100, priceType: 'co', previewColorGradient: 'from-[#000000] to-[#1a1c23]',
+                                 bgColor: 'bg-[#1b1c1d] border-[#34b1e2]/20', smokeColor: '#ff0000', smokeColor2: '#ff0000',
+                                 lineColor: '#ff0000', lineColor2: '#ff0000', offsetX: -90, offsetY: -90, scale: 1.1, rotation: 12, flipX: false
+                               });
+                             }
+                           }
+                         }}
+                         className="w-10 flex items-center justify-center rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/25 transition-all cursor-pointer"
+                         title="Excluir Aeronave Permanentemente"
+                       >
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                          </svg>
                        </button>
                      </div>
@@ -603,6 +669,50 @@ export default function AeronavesAdmin() {
                 </div>
               )}
            </div>
+        </div>
+
+        {/* RELATÓRIO DE POSICIONAMENTO */}
+        <div className="bg-[#111214] rounded-[2rem] border border-white/5 shadow-xl p-8 md:p-10 mb-24">
+          <h3 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3 mb-8 pb-4 border-b border-white/5">
+            <span className="text-[#34b1e2]">📝</span> Relatório Completo de Posicionamento
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-white/5 text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                <tr>
+                  <th className="p-4">Aeronave</th>
+                  <th className="p-4">Offset (X, Y)</th>
+                  <th className="p-4">Scale</th>
+                  <th className="p-4">Rotation</th>
+                  <th className="p-4">Start (X, Y)</th>
+                  <th className="p-4">Smoke/Line</th>
+                  <th className="p-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {aeronaves.map(sk => (
+                  <tr key={sk.id} className="hover:bg-white/[0.02]">
+                    <td className="p-4 font-bold text-white">{sk.name}</td>
+                    <td className="p-4 font-mono text-sky-400">({sk.offsetX}, {sk.offsetY})</td>
+                    <td className="p-4 font-mono">{sk.scale}x</td>
+                    <td className="p-4 font-mono">{sk.rotation}°</td>
+                    <td className="p-4 font-mono text-white/40">({sk.offsetXStart}, {sk.offsetYStart})</td>
+                    <td className="p-4">
+                      <div className="flex gap-1">
+                        <div className="w-3 h-3 rounded-full border border-white/10" style={{ backgroundColor: sk.smokeColor }} title={`Smoke: ${sk.smokeColor}`} />
+                        <div className="w-3 h-3 rounded-full border border-white/10" style={{ backgroundColor: sk.lineColor }} title={`Line: ${sk.lineColor}`} />
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${sk.isActive !== false ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {sk.isActive !== false ? 'Ativa' : 'Inativa'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>

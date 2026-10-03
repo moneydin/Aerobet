@@ -314,3 +314,32 @@ export interface ClubeConfig {
   minBetAmount: number; // Valor mínimo da aposta para contar no clube
   active: boolean;
 }
+
+export interface CabineSession {
+  id: string;
+  name: string;
+  password?: string;
+  totalBankroll: number;
+  pilotShare: number;
+  copilotShare: number;
+  currentBalance: number;
+  initialBalance: number;
+  pilotId: string;
+  pilotName: string;
+  copilotId: string | null;
+  copilotName: string | null;
+  status: 'waiting' | 'active' | 'closed';
+  createdAt: number;
+  userRole: 'pilot' | 'copilot';
+  totalRounds: number;
+  profit: number;
+}
+
+export interface CabineMessage {
+  id: string;
+  cabineId: string;
+  sender: string;
+  role: 'pilot' | 'copilot';
+  text: string;
+  timestamp: number;
+}

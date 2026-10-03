@@ -15,6 +15,9 @@ interface ProfileModalProps {
   isSubscribed: boolean; 
   onOpenSubscription: () => void; 
   onOpenClube: () => void;
+  onLogout?: () => void;
+  onSwitchMode?: () => void;
+  onSwitchProfile?: () => void;
 }
 
 const StatCard = ({ label, value, color = "text-white" }: any) => (
@@ -38,7 +41,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
   onUpdateProfile,
   isSubscribed,
   onOpenSubscription,
-  onOpenClube
+  onOpenClube,
+  onLogout,
+  onSwitchMode,
+  onSwitchProfile
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'my_data' | 'history'>('overview');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,7 +141,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
                   )}
                   {stats.clubeMember && (
                       <span className="bg-[#34b1e2] text-black text-[9px] font-black px-2 py-0.5 rounded-md w-fit shadow-lg whitespace-nowrap">
-                          CLUBE AEROBET
+                          CLUBE AEROGAME
                       </span>
                   )}
               </div>
@@ -193,7 +199,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
                     {stats.clubeMember ? (
                         <div className="bg-[#34b1e2]/10 p-4 rounded-xl border border-[#34b1e2]/20">
                             <div className="flex justify-between items-center mb-3">
-                                <h4 className="text-[10px] font-black text-[#34b1e2] uppercase tracking-widest">Clube Aerobet</h4>
+                                <h4 className="text-[10px] font-black text-[#34b1e2] uppercase tracking-widest">Clube Aerogame</h4>
                                 <button 
                                     onClick={onOpenClube}
                                     className="text-[9px] font-black text-white/40 hover:text-white uppercase tracking-widest flex items-center gap-1 transition-colors"
@@ -213,7 +219,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
                     ) : (
                         <div className="bg-white/5 p-4 rounded-xl border border-white/10 flex items-center justify-between">
                             <div>
-                                <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Clube Aerobet</h4>
+                                <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Clube Aerogame</h4>
                                 <p className="text-[10px] text-white/60">Participe e ganhe voos grátis.</p>
                             </div>
                             <button 
@@ -380,6 +386,28 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
             )}
 
+        </div>
+
+        {/* Modal Footer Account Actions */}
+        <div className="p-4 bg-[#0d0e10] border-t border-white/10 shrink-0 flex items-center justify-between gap-3">
+          {(onSwitchMode || onSwitchProfile) && (
+            <button 
+              onClick={() => { onClose(); if (onSwitchMode) onSwitchMode(); else if (onSwitchProfile) onSwitchProfile(); }}
+              className="flex-1 py-2.5 px-3 bg-[#34b1e2]/20 hover:bg-[#34b1e2]/30 border border-[#34b1e2]/40 text-sky-300 hover:text-white rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow"
+            >
+              <span>🎮</span>
+              <span>Trocar de Modo</span>
+            </button>
+          )}
+          {onLogout && (
+            <button 
+              onClick={() => { onClose(); onLogout(); }}
+              className="flex-1 py-2.5 px-3 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 hover:text-red-300 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow"
+            >
+              <span>🚪</span>
+              <span>Sair da Conta</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
